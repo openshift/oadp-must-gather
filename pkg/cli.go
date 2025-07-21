@@ -154,6 +154,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			nodeList := &corev1.NodeList{}
 			clusterServiceVersionList := &operatorsv1alpha1.ClusterServiceVersionList{}
 			subscriptionList := &operatorsv1alpha1.SubscriptionList{}
+			proxyList := &openshiftconfigv1.ProxyList{}
 
 			dataProtectionApplicationList := &oadpv1alpha1.DataProtectionApplicationList{}
 			dataProtectionTestList := &oadpv1alpha1.DataProtectionTestList{}
@@ -185,6 +186,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 				nodeList,
 				clusterServiceVersionList,
 				subscriptionList,
+				proxyList,
 
 				dataProtectionApplicationList,
 				dataProtectionTestList,
@@ -314,6 +316,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			// https://github.com/konveyor/analyzer-lsp/blob/main/engine/engine.go
 			templates.ReplaceMustGatherVersion(mustGatherVersion)
 			templates.ReplaceClusterInformationSection(outputPath, clusterID, clusterVersion, infrastructureList, nodeList)
+			templates.ReplaceProxiesSection(outputPath, proxyList)
 			templates.ReplaceOADPOperatorInstallationSection(outputPath, importantCSVsByNamespace, importantSubscriptionsByNamespace, foundOADP, foundRelatedProducts, oldOADPError, oadpOperatorsText)
 			templates.ReplaceDataProtectionApplicationsSection(outputPath, dataProtectionApplicationList)
 			templates.ReplaceDataProtectionTestsSection(outputPath, dataProtectionTestList)

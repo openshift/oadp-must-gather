@@ -44,6 +44,7 @@ var (
 		"MUST_GATHER_VERSION",
 		"ERRORS",
 		"CLUSTER_ID", "OCP_VERSION", "CLOUD", "ARCH", "CLUSTER_VERSION",
+		"PROXIES",
 		"OADP_VERSIONS",
 		"DATA_PROTECTION_APPLICATIONS",
 		"DATA_PROTECTION_TESTS",
@@ -82,6 +83,7 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 
 - [Errors](#errors)
 - [Cluster information](#cluster-information)
+- [Proxies](#proxies)
 - [OADP operator installation information](#oadp-operator-installation-information)
     - [DataProtectionApplications (DPAs)](#dataprotectionapplications-dpas)
 	- [DataProtectionTests (DPTs)](#dataprotectiontests-dpts)
@@ -133,6 +135,10 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 ### DataProtectionTests (DPTs)
 
 <<DATA_PROTECTION_TESTS>>
+
+### Proxies
+
+<<PROXIES>>
 
 ### CloudStorages
 
@@ -1690,6 +1696,7 @@ func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *r
 		"nonadmindownloadrequests":              gvk.NonAdminDownloadRequestGVK.Group,
 		"clusterserviceversions":                gvk.ClusterServiceVersionGVK.Group,
 		"subscriptions":                         gvk.SubscriptionsGVK.Group,
+		"proxies":                               gvk.ProxyGVK.Group,
 	}
 
 	for crdName, crdGroup := range crds {
@@ -1704,6 +1711,48 @@ func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *r
 	}
 
 	summaryTemplateReplaces["CUSTOM_RESOURCE_DEFINITION"] += fmt.Sprintf("For more information, check [`%s`](%s)\n\n", crdsPath, crdsPath)
+}
+
+func ReplaceProxiesSection(outputPath string, proxyList *openshiftconfigv1.ProxyList) {
+	if proxyList != nil && len(proxyList.Items) != 0 {
+		list := &corev1.List{}
+		list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
+
+		folder := "cluster-scoped-resources/config.openshift.io/proxies"
+		file := folder + "/proxies.yaml"
+
+		summaryTemplateReplaces["PROXIES"] += "| Name | HTTP Proxy | HTTPS Proxy | No Proxy | yaml |\n| --- | --- | --- | --- | --- |\n"
+
+		for _, proxy := range proxyList.Items {
+			proxy.GetObjectKind().SetGroupVersionKind(gvk.ProxyGVK)
+			list.Items = append(list.Items, runtime.RawExtension{Object: &proxy})
+
+			httpProxy := proxy.Spec.HTTPProxy
+			if len(httpProxy) == 0 {
+				httpProxy = "❌ not set"
+			}
+
+			httpsProxy := proxy.Spec.HTTPSProxy
+			if len(httpsProxy) == 0 {
+				httpsProxy = "❌ not set"
+			}
+
+			noProxy := proxy.Spec.NoProxy
+			if len(noProxy) == 0 {
+				noProxy = "❌ not set"
+			}
+
+			link := fmt.Sprintf("[`yaml`](%s)", file)
+			summaryTemplateReplaces["PROXIES"] += fmt.Sprintf(
+				"| %v | %v | %v | %v | %s |\n",
+				proxy.Name, httpProxy, httpsProxy, noProxy, link,
+			)
+		}
+
+		createYAML(outputPath, file, list)
+	} else {
+		summaryTemplateReplaces["PROXIES"] = "❌ No Proxy configuration found in the cluster"
+	}
 }
 
 func createYAML(outputPath string, yamlPath string, obj runtime.Object) string {

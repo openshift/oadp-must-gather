@@ -145,4 +145,9 @@ var (
 		Version: "v1",
 		Kind:    "CSIDriver",
 	}
+	ProxyGVK = schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Version: "v1",
+		Kind:    "Proxy",
+	}
 )
