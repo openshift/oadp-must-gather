@@ -1,0 +1,12 @@
+[submodule "velero"]
+	path = velero
+	url = https://github.com/openshift/velero.git
+	branch = konveyor-dev
+[submodule "restic"]
+	path = restic
+	url = https://github.com/openshift/restic.git
+	branch = konveyor-dev
+[submodule "kopia"]
+	path = kopia
+	url = https://github.com/migtools/kopia.git
+	branch = oadp-dev
