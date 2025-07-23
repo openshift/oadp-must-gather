@@ -1,0 +1,12 @@
+[submodule "kopia"]
+	path = kopia
+	url = https://github.com/migtools/kopia.git
+	branch = oadp-1.5
+[submodule "velero"]
+	path = velero
+	url = https://github.com/openshift/velero.git
+	branch = oadp-1.5
+[submodule "restic"]
+	path = restic
+	url = https://github.com/openshift/restic.git
+	branch = oadp-1.5
