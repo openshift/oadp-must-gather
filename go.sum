@@ -1,6 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 h1:UQHMgLO+TxOElx5B5HZ4hJQsoJ/PvUvKRhJHDQXO8P8=
-github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
+github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEKWjV8V+WSxDXJ4NFATAsZjh8iIbsQIg=
+github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
@@ -198,8 +198,6 @@ github.com/onsi/gomega v1.33.1 h1:dsYjIxxSR755MDmKVsaFQTE22ChNBcuuTWgkUDSubOk=
 github.com/onsi/gomega v1.33.1/go.mod h1:U4R44UsT+9eLIaYRB2a5qajjtQYn0hauxvRm16AVYg0=
 github.com/openshift/api v0.0.0-20240912201240-0a8800162826 h1:A8D9SN/hJUwAbdO0rPCVTqmuBOctdgurr53gK701SYo=
 github.com/openshift/api v0.0.0-20240912201240-0a8800162826/go.mod h1:OOh6Qopf21pSzqNVCB5gomomBXb8o5sGKZxG2KNpaXM=
-github.com/openshift/oadp-operator v1.0.2-0.20250327225822-5cc21cec9653 h1:p6t+nVTJsrT1FQSaL/n/sf9begEoLXfX08OVxfjdLYM=
-github.com/openshift/oadp-operator v1.0.2-0.20250327225822-5cc21cec9653/go.mod h1:tzlEfI5g4gomtv5dZ4qgEQSNSiwiOrsBj2P5nTqawPY=
 github.com/openshift/oadp-operator v1.0.2-0.20250506010707-2a52b7a20c4b h1:rz8ccMAPeFaFvxVfiD0k/GshGzU/uA10q/mJSLg6xWg=
 github.com/openshift/oadp-operator v1.0.2-0.20250506010707-2a52b7a20c4b/go.mod h1:IvBUP2qVUBst49SSzVhxajq4Bs1n/lm9K/kguhTltqI=
 github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b h1:dBEu456jnnhr7KH1T+Mrna1DvFadk1qN+NEtLb8Nn8U=
