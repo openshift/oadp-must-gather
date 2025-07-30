@@ -65,4 +65,3 @@ COPY --from=builder /workspace/deprecated/gather_* /usr/bin/
 COPY LICENSE /licenses/
 
 ENTRYPOINT /usr/bin/gather
-
