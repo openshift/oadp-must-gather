@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openshift/oadp-operator/must-gather/pkg/gvk"
+	"github.com/openshift/oadp-must-gather/pkg/gvk"
 )
 
 const (

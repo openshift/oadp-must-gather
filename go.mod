@@ -1,4 +1,4 @@
-module github.com/openshift/oadp-operator/must-gather
+module github.com/openshift/oadp-must-gather
 
 go 1.23.1
 
@@ -7,7 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/openshift/api v0.0.0-20240410141538-3c0461467316
-	github.com/openshift/oadp-operator v1.0.2-0.20250403192318-6d871184bfdc
+	github.com/openshift/oadp-operator v1.0.2-0.20250730194617-9feb5ea03c9d
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250305035534-ee354f66de43
 	github.com/operator-framework/api v0.22.0
 	github.com/spf13/cobra v1.8.1

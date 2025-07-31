@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openshift/oadp-operator/must-gather/pkg"
+	"github.com/openshift/oadp-must-gather/pkg"
 )
 
 func init() {
