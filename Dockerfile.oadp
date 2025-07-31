@@ -1,4 +1,4 @@
-# upstream src https://github.com/openshift/oadp-operator/blob/master/must-gather/Dockerfile
+# upstream src https://github.com/openshift/oadp-must-gather/blob/oadp-1.3/Dockerfile
 
 # oc
 #@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-ose-cli-rhel9:v4.16)
