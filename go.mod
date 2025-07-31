@@ -1,4 +1,4 @@
-module github.com/openshift/oadp-operator/must-gather
+module github.com/openshift/oadp-must-gather
 
 go 1.23.1
 
@@ -7,7 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/openshift/api v0.0.0-20230213134911-7ba313770556
-	github.com/openshift/oadp-operator v1.0.2-0.20250325234555-1ca2cae559d1
+	github.com/openshift/oadp-operator v1.0.2-0.20250730200000-e7671c0c244a
 	github.com/openshift/oc v0.0.0-alpha.0.0.20240408085010-d691257345ae
 	github.com/operator-framework/api v0.17.1
 	github.com/spf13/cobra v1.8.1
@@ -49,6 +49,7 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/deckarep/golang-set/v2 v2.3.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
@@ -60,6 +61,7 @@ require (
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
@@ -112,9 +114,11 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
 	github.com/oklog/run v1.0.0 // indirect
+	github.com/operator-framework/operator-lib v0.9.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.51.2 // indirect
 	github.com/prometheus/client_golang v1.15.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
