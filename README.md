@@ -34,8 +34,8 @@ omg get backup -n <namespace> # and other OADP resources
 
 To update OADP Must-gather `go.mod` dependencies, run
 ```sh
-go get github.com/openshift/oadp-operator@master
-go get github.com/migtools/oadp-non-admin@master
+go get github.com/openshift/oadp-operator@oadp-1.5
+go get github.com/migtools/oadp-non-admin@oadp-1.5
 # manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
 go mod tidy
 go mod verify
@@ -98,7 +98,7 @@ OADP Must-gather stores version information in `/must-gather/version` file
 Example content of the file
 ```txt
 OpenShift API for Data Protection (OADP) Must-gather
-master-branch
+oadp-dev-branch
 ```
 
 >4. Should honor the user-provided values for `--since` and `--since-time`, which are passed to plugins via
