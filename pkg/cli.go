@@ -22,12 +22,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/openshift/oadp-operator/must-gather/pkg/gather"
-	"github.com/openshift/oadp-operator/must-gather/pkg/templates"
+	"github.com/openshift/oadp-must-gather/pkg/gather"
+	"github.com/openshift/oadp-must-gather/pkg/templates"
 )
 
 const (
-	mustGatherVersion = "master-branch"
+	mustGatherVersion = "oadp-dev-branch"
 	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
 
 	addToSchemeError = "Exiting OADP must-gather, an error happened while adding %s to scheme: %v\n"
