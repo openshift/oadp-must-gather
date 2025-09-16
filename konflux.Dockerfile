@@ -1,11 +1,7 @@
-# upstream src https://github.com/openshift/oadp-must-gather/blob/oadp-1.4/Dockerfile
-
 # oc
-#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-ose-cli-rhel9:v4.18)
 FROM brew.registry.redhat.io/rh-osbs/openshift-ose-cli-rhel9:v4.18 AS ose-cli
 
-#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.23)
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.23 AS builder
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.24 AS builder
 
 COPY . /workspace
 USER root
@@ -51,10 +47,9 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -tags strictfipsruntime -o ./b
 
 ENV INSTALLATION_NAMESPACE openshift-adp
 
-#@follow_tag(registry.redhat.io/ubi9/ubi-minimal:latest)
-FROM registry.redhat.io/ubi9/ubi-minimal:latest
-RUN microdnf -y reinstall tzdata && microdnf clean all
-RUN microdnf -y install openssl rsync tar gzip && microdnf -y clean all
+FROM registry.redhat.io/ubi9/ubi:latest
+RUN dnf -y reinstall tzdata && dnf clean all
+RUN dnf -y install openssl rsync tar gzip && dnf -y clean all
 
 COPY --from=builder /workspace/velero/bin/velero /usr/bin/velero
 COPY --from=builder /workspace/restic/bin/restic /usr/bin/restic
@@ -62,6 +57,6 @@ COPY --from=ose-cli /usr/bin/oc /usr/bin/oc
 COPY --from=builder /workspace/kopia/kopia /usr/bin/kopia
 COPY --from=builder /workspace/gather /usr/bin/gather
 COPY --from=builder /workspace/deprecated/gather_* /usr/bin/
-COPY LICENSE /licenses/
+COPY --from=builder /workspace/LICENSE /licenses/
 
 ENTRYPOINT /usr/bin/gather
