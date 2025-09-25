@@ -52,7 +52,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
   # running OADP Must-gather with timeout of 1 minute per OADP server request
   oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 1m
 
-  # running OADP Must-gather with timeout of 15 seconds per OADP server request and with secure TLS connections
+  # running OADP Must-gather with timeout of 15 seconds per OADP server request and with insecure TLS connections
   oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 15s`, mustGatherImage),
 		SilenceErrors: true,
 		SilenceUsage:  true,
