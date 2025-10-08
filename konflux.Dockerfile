@@ -60,3 +60,9 @@ COPY --from=builder /workspace/deprecated/gather_* /usr/bin/
 COPY --from=builder /workspace/LICENSE /licenses/
 
 ENTRYPOINT /usr/bin/gather
+
+LABEL description="OpenShift API for Data Protection data gathering image"
+LABEL io.k8s.description="OpenShift API for Data Protection data gathering image"
+LABEL io.k8s.display-name="OpenShift API for Data Protection - mustgather"
+LABEL io.openshift.tags="data,images"
+LABEL summary="OpenShift API for Data Protection data gathering image"
