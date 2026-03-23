@@ -1,5 +1,5 @@
 # oc
-FROM brew.registry.redhat.io/rh-osbs/openshift-ose-cli-rhel9:v4.21 AS ose-cli
+FROM brew.registry.redhat.io/rh-osbs/openshift-ose-cli-rhel9:v4.22 AS ose-cli
 
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25 AS builder
 
