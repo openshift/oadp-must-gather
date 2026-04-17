@@ -1,8 +1,6 @@
 module github.com/openshift/oadp-must-gather
 
-go 1.25.0
-
-toolchain go1.25.8
+go 1.25.8
 
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
