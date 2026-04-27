@@ -48,6 +48,7 @@ To update OADP Must-gather `go.mod` dependencies, run
 ```sh
 go get github.com/openshift/oadp-operator@oadp-dev
 go get github.com/migtools/oadp-non-admin@oadp-dev
+go get github.com/migtools/oadp-vm-file-restore@oadp-dev
 # manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
 go mod tidy
 go mod verify
@@ -67,8 +68,9 @@ Prior to each release, OADP Must-gather must be updated.
 
 To update OADP Must-gather `go.mod` dependencies, run
 ```sh
-go get github.com/openshift/oadp-operator@<release-brach>
-go get github.com/migtools/oadp-non-admin@<release-brach>
+go get github.com/openshift/oadp-operator@<release-branch>
+go get github.com/migtools/oadp-non-admin@<release-branch>
+go get github.com/migtools/oadp-vm-file-restore@<release-branch>
 # manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
 go mod tidy
 go mod verify
