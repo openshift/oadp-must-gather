@@ -46,13 +46,15 @@ omg get backup -n <namespace> # and other OADP resources
 
 To update OADP Must-gather `go.mod` dependencies, run
 ```sh
-go get github.com/openshift/oadp-operator@oadp-dev
-go get github.com/migtools/oadp-non-admin@oadp-dev
-go get github.com/migtools/oadp-vm-file-restore@oadp-dev
-# manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
-go mod tidy
-go mod verify
+make update-deps
 ```
+This defaults to the `oadp-dev` branch. It pulls from the following sources:
+- `github.com/openshift/oadp-operator` — OADP operator API types (DPA, CloudStorage, etc.)
+- `github.com/migtools/oadp-non-admin` — Non-admin API types
+- `github.com/migtools/oadp-vm-file-restore` — VM file restore API types
+
+As new CRD sources are added to the must-gather, they should also be added to the `update-deps` Makefile target.
+
 Update it often. It must be updated prior to releases.
 
 Possible necessary updates over the time
@@ -66,25 +68,19 @@ go mod verify
 
 Prior to each release, OADP Must-gather must be updated.
 
-To update OADP Must-gather `go.mod` dependencies, run
+To update dependencies and version constants in one step, run
 ```sh
-go get github.com/openshift/oadp-operator@<release-branch>
-go get github.com/migtools/oadp-non-admin@<release-branch>
-go get github.com/migtools/oadp-vm-file-restore@<release-branch>
-# manually update github.com/openshift/velero version in replace section of go.mod to match OADP operator
-go mod tidy
-go mod verify
+make prepare-release BRANCH=<release-branch> VERSION=<version>
 ```
 
-`must-gather/pkg/cli.go` file must be updated
-```diff
- const (
--	mustGatherVersion = "1.5.0"
-+	mustGatherVersion = "1.5.1"
-	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
+For example:
+```sh
+make prepare-release BRANCH=oadp-1.6 VERSION=1.6
 ```
 
-> **Note:** If it is a minor release, `mustGatherImage` must also be updated.
+This runs `update-deps` against the release branch and sets `mustGatherVersion` and `mustGatherImage` in `pkg/cli.go`.
+
+> **Note:** The velero fork version in the `replace` directive of `go.mod` must still be verified manually to match the oadp-operator.
 
 ## Deprecated folder
 
