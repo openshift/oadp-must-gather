@@ -130,6 +130,16 @@ var (
 		Version: "v1alpha1",
 		Kind:    "NonAdminDownloadRequest",
 	}
+	VirtualMachineBackupsDiscoveryGVK = schema.GroupVersionKind{
+		Group:   "oadp.openshift.io",
+		Version: "v1alpha1",
+		Kind:    "VirtualMachineBackupsDiscovery",
+	}
+	VirtualMachineFileRestoreGVK = schema.GroupVersionKind{
+		Group:   "oadp.openshift.io",
+		Version: "v1alpha1",
+		Kind:    "VirtualMachineFileRestore",
+	}
 	StorageClassGVK = schema.GroupVersionKind{
 		Group:   "storage.k8s.io",
 		Version: "v1",
