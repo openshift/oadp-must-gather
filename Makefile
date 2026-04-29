@@ -1,5 +1,5 @@
 BRANCH ?= oadp-dev
-VERSION ?=
+VERSION ?= 1.6.0
 IMAGE ?= registry.redhat.io/oadp/oadp-mustgather-rhel9
 
 CLI_FILE = pkg/cli.go
