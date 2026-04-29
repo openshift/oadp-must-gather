@@ -1,4 +1,4 @@
-BRANCH ?= oadp-dev
+BRANCH ?= oadp-1.6
 VERSION ?= 1.6.0
 IMAGE ?= registry.redhat.io/oadp/oadp-mustgather-rhel9
 
