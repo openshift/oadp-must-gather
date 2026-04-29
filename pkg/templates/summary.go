@@ -12,6 +12,7 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	nac1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
+	vmfrv1alpha1 "github.com/migtools/oadp-vm-file-restore/api/v1alpha1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -66,6 +67,8 @@ var (
 		"NON_ADMIN_BACKUPS",
 		"NON_ADMIN_RESTORES",
 		"NON_ADMIN_DOWNLOAD_REQUESTS",
+		"VIRTUAL_MACHINE_BACKUPS_DISCOVERIES",
+		"VIRTUAL_MACHINE_FILE_RESTORES",
 		"STORAGE_CLASSES",
 		"VOLUME_SNAPSHOT_CLASSES",
 		"CSI_DRIVERS",
@@ -104,6 +107,8 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
     - [NonAdminBackups](#nonadminbackups)
     - [NonAdminRestores](#nonadminrestores)
     - [NonAdminDownloadRequests](#nonadmindownloadrequests)
+    - [VirtualMachineBackupsDiscoveries](#virtualmachinebackupsdiscoveries)
+    - [VirtualMachineFileRestores](#virtualmachinefilerestores)
 - Storage
     - [Available StorageClasses in cluster](#available-storageclasses-in-cluster)
     - [Available VolumeSnapshotClasses in cluster](#available-volumesnapshotclasses-in-cluster)
@@ -209,6 +214,14 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 ### NonAdminDownloadRequests
 
 <<NON_ADMIN_DOWNLOAD_REQUESTS>>
+
+### VirtualMachineBackupsDiscoveries
+
+<<VIRTUAL_MACHINE_BACKUPS_DISCOVERIES>>
+
+### VirtualMachineFileRestores
+
+<<VIRTUAL_MACHINE_FILE_RESTORES>>
 
 ## Available StorageClasses in cluster
 
@@ -1603,6 +1616,124 @@ func ReplaceNonAdminDownloadRequestsSection(outputPath string, nonAdminDownloadR
 	}
 }
 
+func ReplaceVirtualMachineBackupsDiscoveriesSection(outputPath string, vmBackupsDiscoveryList *vmfrv1alpha1.VirtualMachineBackupsDiscoveryList) {
+	if vmBackupsDiscoveryList != nil && len(vmBackupsDiscoveryList.Items) != 0 {
+		discoveryByNamespace := map[string][]vmfrv1alpha1.VirtualMachineBackupsDiscovery{}
+
+		for _, discovery := range vmBackupsDiscoveryList.Items {
+			discoveryByNamespace[discovery.Namespace] = append(discoveryByNamespace[discovery.Namespace], discovery)
+		}
+
+		summaryTemplateReplaces["VIRTUAL_MACHINE_BACKUPS_DISCOVERIES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
+		for namespace, discoveries := range discoveryByNamespace {
+			list := &corev1.List{}
+			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
+
+			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/virtualmachinebackupsdiscoveries", namespace)
+			file := folder + "/virtualmachinebackupsdiscoveries.yaml"
+			for _, discovery := range discoveries {
+				discovery.GetObjectKind().SetGroupVersionKind(gvk.VirtualMachineBackupsDiscoveryGVK)
+				list.Items = append(list.Items, runtime.RawExtension{Object: &discovery})
+
+				status := ""
+				phase := discovery.Status.Phase
+				if len(phase) == 0 {
+					status = "⚠️ no status phase"
+					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
+						"⚠️ VirtualMachineBackupsDiscovery **%v** with **no status phase** in **%v** namespace\n\n",
+						discovery.Name, namespace,
+					)
+				} else {
+					failedStates := []vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhase{
+						vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhaseFailed,
+						vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhasePartiallyFailed,
+					}
+					if phase == vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhaseCompleted {
+						status = fmt.Sprintf("✅ status phase %s", phase)
+					} else if slices.Contains(failedStates, phase) {
+						status = fmt.Sprintf("❌ status phase %s", phase)
+						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
+							"❌ VirtualMachineBackupsDiscovery **%v** with **status phase %s** in **%v** namespace\n\n",
+							discovery.Name, phase, namespace,
+						)
+					} else {
+						status = fmt.Sprintf("⚠️ status phase %s", phase)
+					}
+				}
+
+				link := fmt.Sprintf("[`yaml`](%s)", file)
+				summaryTemplateReplaces["VIRTUAL_MACHINE_BACKUPS_DISCOVERIES"] += fmt.Sprintf(
+					"| %v | %v | %s | %s |\n",
+					namespace, discovery.Name, status, link,
+				)
+			}
+
+			createYAML(outputPath, file, list)
+		}
+	} else {
+		summaryTemplateReplaces["VIRTUAL_MACHINE_BACKUPS_DISCOVERIES"] = "❌ No VirtualMachineBackupsDiscovery was found in the cluster"
+	}
+}
+
+func ReplaceVirtualMachineFileRestoresSection(outputPath string, vmFileRestoreList *vmfrv1alpha1.VirtualMachineFileRestoreList) {
+	if vmFileRestoreList != nil && len(vmFileRestoreList.Items) != 0 {
+		restoreByNamespace := map[string][]vmfrv1alpha1.VirtualMachineFileRestore{}
+
+		for _, restore := range vmFileRestoreList.Items {
+			restoreByNamespace[restore.Namespace] = append(restoreByNamespace[restore.Namespace], restore)
+		}
+
+		summaryTemplateReplaces["VIRTUAL_MACHINE_FILE_RESTORES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
+		for namespace, restores := range restoreByNamespace {
+			list := &corev1.List{}
+			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
+
+			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/virtualmachinefilerestores", namespace)
+			file := folder + "/virtualmachinefilerestores.yaml"
+			for _, restore := range restores {
+				restore.GetObjectKind().SetGroupVersionKind(gvk.VirtualMachineFileRestoreGVK)
+				list.Items = append(list.Items, runtime.RawExtension{Object: &restore})
+
+				status := ""
+				phase := restore.Status.Phase
+				if len(phase) == 0 {
+					status = "⚠️ no status phase"
+					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
+						"⚠️ VirtualMachineFileRestore **%v** with **no status phase** in **%v** namespace\n\n",
+						restore.Name, namespace,
+					)
+				} else {
+					failedStates := []vmfrv1alpha1.VirtualMachineFileRestorePhase{
+						vmfrv1alpha1.VirtualMachineFileRestorePhaseFailed,
+						vmfrv1alpha1.VirtualMachineFileRestorePhasePartiallyFailed,
+					}
+					if phase == vmfrv1alpha1.VirtualMachineFileRestorePhaseCompleted {
+						status = fmt.Sprintf("✅ status phase %s", phase)
+					} else if slices.Contains(failedStates, phase) {
+						status = fmt.Sprintf("❌ status phase %s", phase)
+						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
+							"❌ VirtualMachineFileRestore **%v** with **status phase %s** in **%v** namespace\n\n",
+							restore.Name, phase, namespace,
+						)
+					} else {
+						status = fmt.Sprintf("⚠️ status phase %s", phase)
+					}
+				}
+
+				link := fmt.Sprintf("[`yaml`](%s)", file)
+				summaryTemplateReplaces["VIRTUAL_MACHINE_FILE_RESTORES"] += fmt.Sprintf(
+					"| %v | %v | %s | %s |\n",
+					namespace, restore.Name, status, link,
+				)
+			}
+
+			createYAML(outputPath, file, list)
+		}
+	} else {
+		summaryTemplateReplaces["VIRTUAL_MACHINE_FILE_RESTORES"] = "❌ No VirtualMachineFileRestore was found in the cluster"
+	}
+}
+
 func ReplaceAvailableStorageClassesSection(outputPath string, storageClassList *storagev1.StorageClassList) {
 	if storageClassList != nil && len(storageClassList.Items) != 0 {
 		list := &corev1.List{}
@@ -1686,6 +1817,8 @@ func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *r
 		"nonadminbackups":                       gvk.NonAdminBackupGVK.Group,
 		"nonadminrestores":                      gvk.NonAdminRestoreGVK.Group,
 		"nonadmindownloadrequests":              gvk.NonAdminDownloadRequestGVK.Group,
+		"virtualmachinebackupsdiscoveries":      gvk.VirtualMachineBackupsDiscoveryGVK.Group,
+		"virtualmachinefilerestores":            gvk.VirtualMachineFileRestoreGVK.Group,
 		"clusterserviceversions":                gvk.ClusterServiceVersionGVK.Group,
 		"subscriptions":                         gvk.SubscriptionsGVK.Group,
 	}

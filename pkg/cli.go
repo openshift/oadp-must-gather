@@ -9,6 +9,7 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	nac1alpha1 "github.com/migtools/oadp-non-admin/api/v1alpha1"
+	vmfrv1alpha1 "github.com/migtools/oadp-vm-file-restore/api/v1alpha1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	ocadminspect "github.com/openshift/oc/pkg/cli/admin/inspect"
@@ -27,8 +28,8 @@ import (
 )
 
 const (
-	mustGatherVersion = "oadp-dev-branch"
-	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.5"
+	mustGatherVersion = "1.6.0"
+	mustGatherImage   = "registry.redhat.io/oadp/oadp-mustgather-rhel9:v1.6"
 
 	addToSchemeError = "Exiting OADP must-gather, an error happened while adding %s to scheme: %v\n"
 
@@ -110,6 +111,11 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 				fmt.Printf(addToSchemeError, "github.com/migtools/oadp-non-admin/api/v1alpha1", err)
 				return err
 			}
+			err = vmfrv1alpha1.AddToScheme(clusterClient.Scheme())
+			if err != nil {
+				fmt.Printf(addToSchemeError, "github.com/migtools/oadp-vm-file-restore/api/v1alpha1", err)
+				return err
+			}
 			err = velerov1.AddToScheme(clusterClient.Scheme())
 			if err != nil {
 				fmt.Printf(addToSchemeError, "github.com/vmware-tanzu/velero/pkg/apis/velero/v1", err)
@@ -176,6 +182,8 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			nonAdminBackupList := &nac1alpha1.NonAdminBackupList{}
 			nonAdminRestoreList := &nac1alpha1.NonAdminRestoreList{}
 			nonAdminDownloadRequestList := &nac1alpha1.NonAdminDownloadRequestList{}
+			virtualMachineBackupsDiscoveryList := &vmfrv1alpha1.VirtualMachineBackupsDiscoveryList{}
+			virtualMachineFileRestoreList := &vmfrv1alpha1.VirtualMachineFileRestoreList{}
 
 			storageClassList := &storagev1.StorageClassList{}
 			volumeSnapshotClassList := &volumesnapshotv1.VolumeSnapshotClassList{}
@@ -207,6 +215,8 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 				nonAdminBackupList,
 				nonAdminRestoreList,
 				nonAdminDownloadRequestList,
+				virtualMachineBackupsDiscoveryList,
+				virtualMachineFileRestoreList,
 
 				storageClassList,
 				volumeSnapshotClassList,
@@ -344,6 +354,8 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			templates.ReplaceNonAdminBackupsSection(outputPath, nonAdminBackupList)
 			templates.ReplaceNonAdminRestoresSection(outputPath, nonAdminRestoreList)
 			templates.ReplaceNonAdminDownloadRequestsSection(outputPath, nonAdminDownloadRequestList)
+			templates.ReplaceVirtualMachineBackupsDiscoveriesSection(outputPath, virtualMachineBackupsDiscoveryList)
+			templates.ReplaceVirtualMachineFileRestoresSection(outputPath, virtualMachineFileRestoreList)
 			templates.ReplaceAvailableStorageClassesSection(outputPath, storageClassList)
 			templates.ReplaceAvailableVolumeSnapshotClassesSection(outputPath, volumeSnapshotClassList)
 			templates.ReplaceAvailableCSIDriversSection(outputPath, csiDriverList)
