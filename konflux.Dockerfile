@@ -34,7 +34,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -tags strictfipsruntime -o ./k
 # velero
 WORKDIR /workspace/velero/
 ENV GOEXPERIMENT strictfipsruntime
-RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -ldflags '-X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=v1.16.1-OADP' -tags strictfipsruntime -o ./bin/velero ./cmd/velero
+RUN CGO_ENABLED=1 GOOS=linux go build -a -mod=mod -ldflags '-X github.com/vmware-tanzu/velero/pkg/buildinfo.Version=v1.18.1-rc.1-OADP' -tags strictfipsruntime -o ./bin/velero ./cmd/velero
 
 # restic
 WORKDIR /workspace/restic/
