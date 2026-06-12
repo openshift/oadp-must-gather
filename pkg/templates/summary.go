@@ -533,7 +533,7 @@ func ReplaceBackupStorageLocationsSection(outputPath string, backupStorageLocati
 			backupStorageLocationsByNamespace[backupStorageLocation.Namespace] = append(backupStorageLocationsByNamespace[backupStorageLocation.Namespace], backupStorageLocation)
 		}
 
-		summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] += "| Namespace | Name | spec.default | status.phase | yaml |\n| --- | --- | --- | --- | --- |\n"
+		summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] += "| Namespace | Name | spec.provider | spec.objectStorage.bucket | spec.objectStorage.prefix | spec.config.s3Url | spec.default | status.phase | yaml |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
 		for namespace, backupStorageLocations := range backupStorageLocationsByNamespace {
 			list := &corev1.List{}
 			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
@@ -564,18 +564,71 @@ func ReplaceBackupStorageLocationsSection(outputPath string, backupStorageLocati
 					}
 				}
 
+				s3Url := ""
+				if backupStorageLocation.Spec.Config != nil {
+					s3Url = backupStorageLocation.Spec.Config["s3Url"]
+				}
+
 				link := fmt.Sprintf("[`yaml`](%s)", file)
 				summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] += fmt.Sprintf(
-					"| %v | %v | %t | %v | %s |\n",
-					namespace, backupStorageLocation.Name, backupStorageLocation.Spec.Default, bslStatus, link,
+					"| %v | %v | %v | %v | %v | %v | %t | %v | %s |\n",
+					namespace,
+					backupStorageLocation.Name,
+					backupStorageLocation.Spec.Provider,
+					backupStorageLocation.Spec.ObjectStorage.Bucket,
+					backupStorageLocation.Spec.ObjectStorage.Prefix,
+					s3Url,
+					backupStorageLocation.Spec.Default,
+					bslStatus,
+					link,
 				)
 			}
 
 			createYAML(outputPath, file, list)
 		}
+
+		checkDuplicateBSLTargets(backupStorageLocationList)
 	} else {
 		summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] = "❌ No BackupStorageLocation was found in the cluster"
 		summaryTemplateReplaces["ERRORS"] += "⚠️ No BackupStorageLocation was found in the cluster\n\n"
+	}
+}
+
+func checkDuplicateBSLTargets(backupStorageLocationList *velerov1.BackupStorageLocationList) {
+	type bslTarget struct {
+		provider string
+		bucket   string
+		prefix   string
+		s3Url    string
+	}
+
+	targetToBSLs := map[bslTarget][]string{}
+	for _, bsl := range backupStorageLocationList.Items {
+		s3Url := ""
+		if bsl.Spec.Config != nil {
+			s3Url = bsl.Spec.Config["s3Url"]
+		}
+		key := bslTarget{
+			provider: bsl.Spec.Provider,
+			bucket:   bsl.Spec.ObjectStorage.Bucket,
+			prefix:   bsl.Spec.ObjectStorage.Prefix,
+			s3Url:    s3Url,
+		}
+		targetToBSLs[key] = append(targetToBSLs[key], fmt.Sprintf("%s/%s", bsl.Namespace, bsl.Name))
+	}
+
+	for target, bsls := range targetToBSLs {
+		if len(bsls) > 1 {
+			targetDesc := fmt.Sprintf("provider: %s, bucket: %s, prefix: %s", target.provider, target.bucket, target.prefix)
+			if target.s3Url != "" {
+				targetDesc += fmt.Sprintf(", s3Url: %s", target.s3Url)
+			}
+			summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
+				"⚠️ Multiple BackupStorageLocations share the same target (%s): **%s** — this is dangerous and likely unsupported\n\n",
+				targetDesc,
+				strings.Join(bsls, "**, **"),
+			)
+		}
 	}
 }
 
