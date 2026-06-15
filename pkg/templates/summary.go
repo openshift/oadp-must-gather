@@ -569,14 +569,21 @@ func ReplaceBackupStorageLocationsSection(outputPath string, backupStorageLocati
 					s3Url = backupStorageLocation.Spec.Config["s3Url"]
 				}
 
+				bucket := ""
+				prefix := ""
+				if backupStorageLocation.Spec.ObjectStorage != nil {
+					bucket = backupStorageLocation.Spec.ObjectStorage.Bucket
+					prefix = backupStorageLocation.Spec.ObjectStorage.Prefix
+				}
+
 				link := fmt.Sprintf("[`yaml`](%s)", file)
 				summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] += fmt.Sprintf(
 					"| %v | %v | %v | %v | %v | %v | %t | %v | %s |\n",
 					namespace,
 					backupStorageLocation.Name,
 					backupStorageLocation.Spec.Provider,
-					backupStorageLocation.Spec.ObjectStorage.Bucket,
-					backupStorageLocation.Spec.ObjectStorage.Prefix,
+					bucket,
+					prefix,
 					s3Url,
 					backupStorageLocation.Spec.Default,
 					bslStatus,
@@ -608,10 +615,16 @@ func checkDuplicateBSLTargets(backupStorageLocationList *velerov1.BackupStorageL
 		if bsl.Spec.Config != nil {
 			s3Url = bsl.Spec.Config["s3Url"]
 		}
+		bucket := ""
+		prefix := ""
+		if bsl.Spec.ObjectStorage != nil {
+			bucket = bsl.Spec.ObjectStorage.Bucket
+			prefix = bsl.Spec.ObjectStorage.Prefix
+		}
 		key := bslTarget{
 			provider: bsl.Spec.Provider,
-			bucket:   bsl.Spec.ObjectStorage.Bucket,
-			prefix:   bsl.Spec.ObjectStorage.Prefix,
+			bucket:   bucket,
+			prefix:   prefix,
 			s3Url:    s3Url,
 		}
 		targetToBSLs[key] = append(targetToBSLs[key], fmt.Sprintf("%s/%s", bsl.Namespace, bsl.Name))
