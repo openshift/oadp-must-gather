@@ -4,10 +4,10 @@ go 1.25.7
 
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260526195205-54d1934bbb11
+	github.com/migtools/oadp-non-admin v0.0.0-20260616165054-96b4ac0f79d4
 	github.com/migtools/oadp-vm-file-restore v0.0.0-20260413205855-9b5ad9ff9d7a
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
-	github.com/openshift/oadp-operator v1.0.2-0.20260528002306-f9a4a0870574
+	github.com/openshift/oadp-operator v1.0.2-0.20260611195823-fca7205015b4
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.10.2
