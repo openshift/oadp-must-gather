@@ -4,10 +4,10 @@ go 1.25.7
 
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260618191445-606412a71c73
+	github.com/migtools/oadp-non-admin v0.0.0-20260623200643-6080c9a58ddd
 	github.com/migtools/oadp-vm-file-restore v0.0.0-20260413205855-9b5ad9ff9d7a
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
-	github.com/openshift/oadp-operator v1.0.2-0.20260617204850-9ac30ad009f5
+	github.com/openshift/oadp-operator v1.0.2-0.20260622201653-157bce88a195
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.10.2
@@ -122,4 +122,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260601183324-af1b4409d3db
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260623201227-3da6a7a30d21
