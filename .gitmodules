@@ -1,6 +1,6 @@
 [submodule "velero"]
 	path = velero
-	url = https://github.com/openshift/velero.git
+	url = https://github.com/openshift/velero
 	branch = oadp-1.6
 [submodule "restic"]
 	path = restic
@@ -8,5 +8,5 @@
 	branch = oadp-1.6
 [submodule "kopia"]
 	path = kopia
-	url = https://github.com/migtools/kopia.git
+	url = https://github.com/migtools/kopia
 	branch = oadp-1.6
