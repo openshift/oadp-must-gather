@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260623200643-6080c9a58ddd
+	github.com/migtools/oadp-non-admin v0.0.0-20260624145020-c965753509ba
 	github.com/migtools/oadp-vm-file-restore v0.0.0-20260413205855-9b5ad9ff9d7a
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
 	github.com/openshift/oadp-operator v1.0.2-0.20260622201653-157bce88a195
