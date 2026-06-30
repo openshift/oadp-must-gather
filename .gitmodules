@@ -4,7 +4,7 @@
 	branch = oadp-1.5
 [submodule "velero"]
 	path = velero
-	url = https://github.com/openshift/velero.git
+	url = https://github.com/openshift/velero
 	branch = oadp-1.5
 [submodule "restic"]
 	path = restic
