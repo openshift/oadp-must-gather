@@ -7,7 +7,7 @@ require (
 	github.com/migtools/oadp-non-admin v0.0.0-20260626140926-92e77f840530
 	github.com/migtools/oadp-vm-file-restore v0.0.0-20260413205855-9b5ad9ff9d7a
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
-	github.com/openshift/oadp-operator v1.0.2-0.20260622201653-157bce88a195
+	github.com/openshift/oadp-operator v1.0.2-0.20260629194541-e24d0499119f
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.10.2
@@ -123,3 +123,5 @@ require (
 )
 
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260625184912-30af95b19e2d
+
+replace github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000 => github.com/kcp-dev/kcp/sdk v0.27.1
