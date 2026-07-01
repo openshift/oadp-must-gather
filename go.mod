@@ -5,11 +5,11 @@ go 1.25.8
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/openshift/api v0.0.0-20230213134911-7ba313770556
-	github.com/openshift/oadp-operator v1.0.2-0.20250730200000-e7671c0c244a
+	github.com/openshift/oadp-operator v1.0.2-0.20260630220002-cf8bc34e2004
 	github.com/openshift/oc v0.0.0-alpha.0.0.20240408085010-d691257345ae
 	github.com/operator-framework/api v0.17.1
 	github.com/spf13/cobra v1.8.1
-	github.com/vmware-tanzu/velero v1.12.3
+	github.com/vmware-tanzu/velero v1.12.4
 	k8s.io/api v0.25.6
 	k8s.io/apiextensions-apiserver v0.25.6
 	k8s.io/apimachinery v0.25.6
@@ -184,6 +184,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20250317162642-926f317d8f75
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260630215119-21733ac177a2
 
 replace github.com/kopia/kopia => github.com/project-velero/kopia v0.13.0-velero.1
+
+exclude github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
