@@ -25,7 +25,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/rest"
@@ -344,71 +344,60 @@ func ReplaceOADPOperatorInstallationSection(
 }
 
 func ReplaceDataProtectionApplicationsSection(outputPath string, dataProtectionApplicationList *oadpv1alpha1.DataProtectionApplicationList) {
-	if dataProtectionApplicationList != nil && len(dataProtectionApplicationList.Items) != 0 {
-		dataProtectionApplicationsByNamespace := map[string][]oadpv1alpha1.DataProtectionApplication{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "DATA_PROTECTION_APPLICATIONS",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "dataprotectionapplications",
+		GVK:          gvk.DataProtectionApplicationGVK,
+		TableHeader:  "| Namespace | Name | spec.unsupportedOverrides | status.conditions[0] | yaml |\n| --- | --- | --- | --- | --- |\n",
+		EmptyMessage: "No DataProtectionApplication was found in the cluster",
+		ErrorOnEmpty: true,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			dpa := item.(*oadpv1alpha1.DataProtectionApplication)
+			errMsg := ""
 
-		for _, dataProtectionApplication := range dataProtectionApplicationList.Items {
-			dataProtectionApplicationsByNamespace[dataProtectionApplication.Namespace] = append(dataProtectionApplicationsByNamespace[dataProtectionApplication.Namespace], dataProtectionApplication)
-		}
-
-		summaryTemplateReplaces["DATA_PROTECTION_APPLICATIONS"] += "| Namespace | Name | spec.unsupportedOverrides | status.conditions[0] | yaml |\n| --- | --- | --- | --- | --- |\n"
-		for namespace, dataProtectionApplications := range dataProtectionApplicationsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/dataprotectionapplications", namespace)
-			file := folder + "/dataprotectionapplications.yaml"
-			for _, dataProtectionApplication := range dataProtectionApplications {
-				dataProtectionApplication.GetObjectKind().SetGroupVersionKind(gvk.DataProtectionApplicationGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &dataProtectionApplication})
-
-				unsupportedOverridesText := "false"
-				if dataProtectionApplication.Spec.UnsupportedOverrides != nil {
-					for _, value := range dataProtectionApplication.Spec.UnsupportedOverrides {
-						if value != "" {
-							summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-								"⚠️ DataProtectionApplication **%v** in **%v** namespace is using **unsupportedOverrides**\n\n",
-								dataProtectionApplication.Name, namespace,
-							)
-							unsupportedOverridesText = "⚠️ true"
-							break
-						}
-					}
-				}
-
-				dpaStatus := ""
-				if len(dataProtectionApplication.Status.Conditions) == 0 {
-					dpaStatus = "⚠️ no status"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ DataProtectionApplication **%v** with **no status** in **%v** namespace\n\n",
-						dataProtectionApplication.Name, namespace,
-					)
-				} else {
-					condition := dataProtectionApplication.Status.Conditions[0]
-					if condition.Status == v1.ConditionTrue {
-						dpaStatus = fmt.Sprintf("✅ status %s: %s", condition.Type, condition.Status)
-					} else {
-						dpaStatus = fmt.Sprintf("❌ status %s: %s", condition.Type, condition.Status)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ DataProtectionApplication **%v** with **status %s: %s** in **%v** namespace\n\n",
-							dataProtectionApplication.Name, condition.Type, condition.Status, namespace,
+			unsupportedOverridesText := "false"
+			if dpa.Spec.UnsupportedOverrides != nil {
+				for _, value := range dpa.Spec.UnsupportedOverrides {
+					if value != "" {
+						errMsg += fmt.Sprintf(
+							"⚠️ DataProtectionApplication **%v** in **%v** namespace is using **unsupportedOverrides**\n\n",
+							dpa.Name, dpa.Namespace,
 						)
+						unsupportedOverridesText = "⚠️ true"
+						break
 					}
 				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["DATA_PROTECTION_APPLICATIONS"] += fmt.Sprintf(
-					"| %v | %v | %v | %v | %s |\n",
-					namespace, dataProtectionApplication.Name, unsupportedOverridesText, dpaStatus, link,
-				)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["DATA_PROTECTION_APPLICATIONS"] = "❌ No DataProtectionApplication was found in the cluster"
-		summaryTemplateReplaces["ERRORS"] += "⚠️ No DataProtectionApplication was found in the cluster\n\n"
-	}
+			dpaStatus := ""
+			if len(dpa.Status.Conditions) == 0 {
+				dpaStatus = "⚠️ no status"
+				errMsg += fmt.Sprintf(
+					"⚠️ DataProtectionApplication **%v** with **no status** in **%v** namespace\n\n",
+					dpa.Name, dpa.Namespace,
+				)
+			} else {
+				condition := dpa.Status.Conditions[0]
+				if condition.Status == v1.ConditionTrue {
+					dpaStatus = fmt.Sprintf("✅ status %s: %s", condition.Type, condition.Status)
+				} else {
+					dpaStatus = fmt.Sprintf("❌ status %s: %s", condition.Type, condition.Status)
+					errMsg += fmt.Sprintf(
+						"❌ DataProtectionApplication **%v** with **status %s: %s** in **%v** namespace\n\n",
+						dpa.Name, condition.Type, condition.Status, dpa.Namespace,
+					)
+				}
+			}
+
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf(
+				"| %v | %v | %v | %v | %s |\n",
+				dpa.Namespace, dpa.Name, unsupportedOverridesText, dpaStatus, link,
+			)
+			return row, errMsg
+		},
+	}, dataProtectionApplicationList)
 }
 
 func ReplaceDataProtectionTestsSection(outputPath string, dptList *oadpv1alpha1.DataProtectionTestList) {
@@ -493,123 +482,70 @@ func humanizeDurationSince(t time.Time) string {
 }
 
 func ReplaceCloudStoragesSection(outputPath string, cloudStorageList *oadpv1alpha1.CloudStorageList) {
-	if cloudStorageList != nil && len(cloudStorageList.Items) != 0 {
-		cloudStorageByNamespace := map[string][]oadpv1alpha1.CloudStorage{}
-
-		for _, cloudStorage := range cloudStorageList.Items {
-			cloudStorageByNamespace[cloudStorage.Namespace] = append(cloudStorageByNamespace[cloudStorage.Namespace], cloudStorage)
-		}
-
-		summaryTemplateReplaces["CLOUD_STORAGES"] += "| Namespace | Name | yaml |\n| --- | --- | --- |\n"
-		for namespace, cloudStorages := range cloudStorageByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/cloudstorages", namespace)
-			file := folder + "/cloudstorages.yaml"
-			for _, cloudStorage := range cloudStorages {
-				cloudStorage.GetObjectKind().SetGroupVersionKind(gvk.CloudStorageGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &cloudStorage})
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["BACKUPS"] += fmt.Sprintf(
-					"| %v | %v | %s |\n",
-					namespace, cloudStorage.Name, link,
-				)
-			}
-
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["CLOUD_STORAGES"] = "❌ No CloudStorage was found in the cluster"
-	}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "CLOUD_STORAGES",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "cloudstorages",
+		GVK:          gvk.CloudStorageGVK,
+		TableHeader:  "| Namespace | Name | yaml |\n| --- | --- | --- |\n",
+		EmptyMessage: "No CloudStorage was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			return fmt.Sprintf("| %v | %v | %s |\n", item.GetNamespace(), item.GetName(), link), ""
+		},
+	}, cloudStorageList)
 }
 
 func ReplaceBackupStorageLocationsSection(outputPath string, backupStorageLocationList *velerov1.BackupStorageLocationList) {
-	if backupStorageLocationList != nil && len(backupStorageLocationList.Items) != 0 {
-		backupStorageLocationsByNamespace := map[string][]velerov1.BackupStorageLocation{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "BACKUP_STORAGE_LOCATIONS",
+		APIGroup:     "velero.io",
+		ResourceName: "backupstoragelocations",
+		GVK:          gvk.BackupStorageLocationGVK,
+		TableHeader:  "| Namespace | Name | spec.default | status.phase | yaml |\n| --- | --- | --- | --- | --- |\n",
+		EmptyMessage: "No BackupStorageLocation was found in the cluster",
+		ErrorOnEmpty: true,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			bsl := item.(*velerov1.BackupStorageLocation)
+			errMsg := ""
 
-		for _, backupStorageLocation := range backupStorageLocationList.Items {
-			backupStorageLocationsByNamespace[backupStorageLocation.Namespace] = append(backupStorageLocationsByNamespace[backupStorageLocation.Namespace], backupStorageLocation)
-		}
-
-		summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] += "| Namespace | Name | spec.default | status.phase | yaml |\n| --- | --- | --- | --- | --- |\n"
-		for namespace, backupStorageLocations := range backupStorageLocationsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/backupstoragelocations", namespace)
-			file := folder + "/backupstoragelocations.yaml"
-			for _, backupStorageLocation := range backupStorageLocations {
-				backupStorageLocation.GetObjectKind().SetGroupVersionKind(gvk.BackupStorageLocationGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &backupStorageLocation})
-
-				bslStatus := ""
-				bslStatusPhase := backupStorageLocation.Status.Phase
-				if len(bslStatusPhase) == 0 {
-					bslStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ BackupStorageLocation **%v** with **no status phase** in **%v** namespace\n\n",
-						backupStorageLocation.Name, namespace,
-					)
-				} else {
-					if bslStatusPhase == velerov1.BackupStorageLocationPhaseAvailable {
-						bslStatus = fmt.Sprintf("✅ status phase %s", bslStatusPhase)
-					} else {
-						bslStatus = fmt.Sprintf("❌ status phase %s", bslStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ BackupStorageLocation **%v** with **status phase %s** in **%v** namespace\n\n",
-							backupStorageLocation.Name, bslStatusPhase, namespace,
-						)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] += fmt.Sprintf(
-					"| %v | %v | %t | %v | %s |\n",
-					namespace, backupStorageLocation.Name, backupStorageLocation.Spec.Default, bslStatus, link,
-				)
+			bslStatus := ""
+			switch bslStatusPhase := bsl.Status.Phase; {
+			case len(bslStatusPhase) == 0:
+				bslStatus = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ BackupStorageLocation **%v** with **no status phase** in **%v** namespace\n\n", bsl.Name, bsl.Namespace)
+			case bslStatusPhase == velerov1.BackupStorageLocationPhaseAvailable:
+				bslStatus = fmt.Sprintf("✅ status phase %s", bslStatusPhase)
+			default:
+				bslStatus = fmt.Sprintf("❌ status phase %s", bslStatusPhase)
+				errMsg += fmt.Sprintf("❌ BackupStorageLocation **%v** with **status phase %s** in **%v** namespace\n\n", bsl.Name, bslStatusPhase, bsl.Namespace)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["BACKUP_STORAGE_LOCATIONS"] = "❌ No BackupStorageLocation was found in the cluster"
-		summaryTemplateReplaces["ERRORS"] += "⚠️ No BackupStorageLocation was found in the cluster\n\n"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf(
+				"| %v | %v | %t | %v | %s |\n",
+				bsl.Namespace, bsl.Name, bsl.Spec.Default, bslStatus, link,
+			)
+			return row, errMsg
+		},
+	}, backupStorageLocationList)
 }
 
 func ReplaceVolumeSnapshotLocationsSection(outputPath string, volumeSnapshotLocationList *velerov1.VolumeSnapshotLocationList) {
-	if volumeSnapshotLocationList != nil && len(volumeSnapshotLocationList.Items) != 0 {
-		volumeSnapshotLocationsByNamespace := map[string][]velerov1.VolumeSnapshotLocation{}
-
-		for _, volumeSnapshotLocation := range volumeSnapshotLocationList.Items {
-			volumeSnapshotLocationsByNamespace[volumeSnapshotLocation.Namespace] = append(volumeSnapshotLocationsByNamespace[volumeSnapshotLocation.Namespace], volumeSnapshotLocation)
-		}
-
-		summaryTemplateReplaces["VOLUME_SNAPSHOT_LOCATIONS"] += "| Namespace | Name | yaml |\n| --- | --- | --- |\n"
-		for namespace, volumeSnapshotLocations := range volumeSnapshotLocationsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/volumesnapshotlocations", namespace)
-			file := folder + "/volumesnapshotlocations.yaml"
-			for _, volumeSnapshotLocation := range volumeSnapshotLocations {
-				volumeSnapshotLocation.GetObjectKind().SetGroupVersionKind(gvk.VolumeSnapshotLocationGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &volumeSnapshotLocation})
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["VOLUME_SNAPSHOT_LOCATIONS"] += fmt.Sprintf(
-					"| %v | %v | %s |\n",
-					namespace, volumeSnapshotLocation.Name, link,
-				)
-			}
-
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["VOLUME_SNAPSHOT_LOCATIONS"] = "❌ No VolumeSnapshotLocation was found in the cluster"
-	}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "VOLUME_SNAPSHOT_LOCATIONS",
+		APIGroup:     "velero.io",
+		ResourceName: "volumesnapshotlocations",
+		GVK:          gvk.VolumeSnapshotLocationGVK,
+		TableHeader:  "| Namespace | Name | yaml |\n| --- | --- | --- |\n",
+		EmptyMessage: "No VolumeSnapshotLocation was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			return fmt.Sprintf("| %v | %v | %s |\n", item.GetNamespace(), item.GetName(), link), ""
+		},
+	}, volumeSnapshotLocationList)
 }
 
 func ReplaceBackupsSection(
@@ -836,950 +772,592 @@ func ReplaceRestoresSection(
 }
 
 func ReplaceSchedulesSection(outputPath string, scheduleList *velerov1.ScheduleList) {
-	if scheduleList != nil && len(scheduleList.Items) != 0 {
-		schedulesByNamespace := map[string][]velerov1.Schedule{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "SCHEDULES",
+		APIGroup:     "velero.io",
+		ResourceName: "schedules",
+		GVK:          gvk.ScheduleGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No Schedule was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			schedule := item.(*velerov1.Schedule)
+			errMsg := ""
 
-		for _, schedule := range scheduleList.Items {
-			schedulesByNamespace[schedule.Namespace] = append(schedulesByNamespace[schedule.Namespace], schedule)
-		}
-
-		summaryTemplateReplaces["SCHEDULES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, schedules := range schedulesByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/schedules", namespace)
-			file := folder + "/schedules.yaml"
-			for _, schedule := range schedules {
-				schedule.GetObjectKind().SetGroupVersionKind(gvk.ScheduleGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &schedule})
-
-				scheduleStatus := ""
-				scheduleStatusPhase := schedule.Status.Phase
-				if len(scheduleStatusPhase) == 0 {
-					scheduleStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ Schedule **%v** with **no status phase** in **%v** namespace\n\n",
-						schedule.Name, namespace,
-					)
-				} else {
-					if scheduleStatusPhase == velerov1.SchedulePhaseEnabled {
-						scheduleStatus = fmt.Sprintf("✅ status phase %s", scheduleStatusPhase)
-					} else if scheduleStatusPhase == velerov1.SchedulePhaseFailedValidation {
-						scheduleStatus = fmt.Sprintf("❌ status phase %s", scheduleStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ Schedule **%v** with **status phase %s** in **%v** namespace\n\n",
-							schedule.Name, scheduleStatusPhase, namespace,
-						)
-					} else {
-						scheduleStatus = fmt.Sprintf("⚠️ status phase %s", scheduleStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["SCHEDULES"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, schedule.Name, scheduleStatus, link,
-				)
+			scheduleStatus := ""
+			switch scheduleStatusPhase := schedule.Status.Phase; {
+			case len(scheduleStatusPhase) == 0:
+				scheduleStatus = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ Schedule **%v** with **no status phase** in **%v** namespace\n\n", schedule.Name, schedule.Namespace)
+			case scheduleStatusPhase == velerov1.SchedulePhaseEnabled:
+				scheduleStatus = fmt.Sprintf("✅ status phase %s", scheduleStatusPhase)
+			case scheduleStatusPhase == velerov1.SchedulePhaseFailedValidation:
+				scheduleStatus = fmt.Sprintf("❌ status phase %s", scheduleStatusPhase)
+				errMsg += fmt.Sprintf("❌ Schedule **%v** with **status phase %s** in **%v** namespace\n\n", schedule.Name, scheduleStatusPhase, schedule.Namespace)
+			default:
+				scheduleStatus = fmt.Sprintf("⚠️ status phase %s", scheduleStatusPhase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["SCHEDULES"] = "❌ No Schedule was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", schedule.Namespace, schedule.Name, scheduleStatus, link)
+			return row, errMsg
+		},
+	}, scheduleList)
 }
 
 func ReplaceBackupRepositoriesSection(outputPath string, backupRepositoryList *velerov1.BackupRepositoryList) {
-	if backupRepositoryList != nil && len(backupRepositoryList.Items) != 0 {
-		backupRepositoriesByNamespace := map[string][]velerov1.BackupRepository{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "BACKUPS_REPOSITORIES",
+		APIGroup:     "velero.io",
+		ResourceName: "backuprepositories",
+		GVK:          gvk.BackupRepositoryGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No BackupRepository was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			br := item.(*velerov1.BackupRepository)
+			errMsg := ""
 
-		for _, backupRepository := range backupRepositoryList.Items {
-			backupRepositoriesByNamespace[backupRepository.Namespace] = append(backupRepositoriesByNamespace[backupRepository.Namespace], backupRepository)
-		}
-
-		summaryTemplateReplaces["BACKUPS_REPOSITORIES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, backupRepositories := range backupRepositoriesByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/backuprepositories", namespace)
-			file := folder + "/backuprepositories.yaml"
-			for _, backupRepository := range backupRepositories {
-				backupRepository.GetObjectKind().SetGroupVersionKind(gvk.BackupRepositoryGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &backupRepository})
-
-				backupRepositoryStatus := ""
-				backupRepositoryStatusPhase := backupRepository.Status.Phase
-				if len(backupRepositoryStatusPhase) == 0 {
-					backupRepositoryStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ BackupRepository **%v** with **no status phase** in **%v** namespace\n\n",
-						backupRepository.Name, namespace,
-					)
-				} else {
-					if backupRepositoryStatusPhase == velerov1.BackupRepositoryPhaseReady {
-						backupRepositoryStatus = fmt.Sprintf("✅ status phase %s", backupRepositoryStatusPhase)
-					} else if backupRepositoryStatusPhase == velerov1.BackupRepositoryPhaseNotReady {
-						backupRepositoryStatus = fmt.Sprintf("❌ status phase %s", backupRepositoryStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ BackupRepository **%v** with **status phase %s** in **%v** namespace\n\n",
-							backupRepository.Name, backupRepositoryStatusPhase, namespace,
-						)
-					} else {
-						backupRepositoryStatus = fmt.Sprintf("⚠️ status phase %s", backupRepositoryStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["BACKUPS_REPOSITORIES"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, backupRepository.Name, backupRepositoryStatus, link,
-				)
+			status := ""
+			switch phase := br.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ BackupRepository **%v** with **no status phase** in **%v** namespace\n\n", br.Name, br.Namespace)
+			case phase == velerov1.BackupRepositoryPhaseReady:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == velerov1.BackupRepositoryPhaseNotReady:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ BackupRepository **%v** with **status phase %s** in **%v** namespace\n\n", br.Name, phase, br.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["BACKUPS_REPOSITORIES"] = "❌ No BackupRepository was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", br.Namespace, br.Name, status, link)
+			return row, errMsg
+		},
+	}, backupRepositoryList)
 }
 
 func ReplaceDataUploadsSection(outputPath string, dataUploadList *velerov2alpha1.DataUploadList) {
-	if dataUploadList != nil && len(dataUploadList.Items) != 0 {
-		dataUploadByNamespace := map[string][]velerov2alpha1.DataUpload{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "DATA_UPLOADS",
+		APIGroup:     "velero.io",
+		ResourceName: "datauploads",
+		GVK:          gvk.DataUploadGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No DataUpload was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			du := item.(*velerov2alpha1.DataUpload)
+			errMsg := ""
 
-		for _, dataUpload := range dataUploadList.Items {
-			dataUploadByNamespace[dataUpload.Namespace] = append(dataUploadByNamespace[dataUpload.Namespace], dataUpload)
-		}
-
-		summaryTemplateReplaces["DATA_UPLOADS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, dataUploads := range dataUploadByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/datauploads", namespace)
-			file := folder + "/datauploads.yaml"
-			for _, dataUpload := range dataUploads {
-				dataUpload.GetObjectKind().SetGroupVersionKind(gvk.DataUploadGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &dataUpload})
-
-				dataUploadStatus := ""
-				dataUploadStatusPhase := dataUpload.Status.Phase
-				if len(dataUploadStatusPhase) == 0 {
-					dataUploadStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ DataUpload **%v** with **no status phase** in **%v** namespace\n\n",
-						dataUpload.Name, namespace,
-					)
-				} else {
-					failedStates := []velerov2alpha1.DataUploadPhase{
-						velerov2alpha1.DataUploadPhaseCanceling,
-						velerov2alpha1.DataUploadPhaseCanceled,
-						velerov2alpha1.DataUploadPhaseFailed,
-					}
-					if dataUploadStatusPhase == velerov2alpha1.DataUploadPhaseCompleted {
-						dataUploadStatus = fmt.Sprintf("✅ status phase %s", dataUploadStatusPhase)
-					} else if slices.Contains(failedStates, dataUploadStatusPhase) {
-						dataUploadStatus = fmt.Sprintf("❌ status phase %s", dataUploadStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ DataUpload **%v** with **status phase %s** in **%v** namespace\n\n",
-							dataUpload.Name, dataUploadStatusPhase, namespace,
-						)
-					} else {
-						dataUploadStatus = fmt.Sprintf("⚠️ status phase %s", dataUploadStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["DATA_UPLOADS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, dataUpload.Name, dataUploadStatus, link,
-				)
+			status := ""
+			switch phase := du.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ DataUpload **%v** with **no status phase** in **%v** namespace\n\n", du.Name, du.Namespace)
+			case phase == velerov2alpha1.DataUploadPhaseCompleted:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case slices.Contains([]velerov2alpha1.DataUploadPhase{
+				velerov2alpha1.DataUploadPhaseCanceling,
+				velerov2alpha1.DataUploadPhaseCanceled,
+				velerov2alpha1.DataUploadPhaseFailed,
+			}, phase):
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ DataUpload **%v** with **status phase %s** in **%v** namespace\n\n", du.Name, phase, du.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["DATA_UPLOADS"] = "❌ No DataUpload was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", du.Namespace, du.Name, status, link)
+			return row, errMsg
+		},
+	}, dataUploadList)
 }
 
 func ReplaceDataDownloadsSection(outputPath string, dataDownloadList *velerov2alpha1.DataDownloadList) {
-	if dataDownloadList != nil && len(dataDownloadList.Items) != 0 {
-		dataDownloadByNamespace := map[string][]velerov2alpha1.DataDownload{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "DATA_DOWNLOADS",
+		APIGroup:     "velero.io",
+		ResourceName: "datadownloads",
+		GVK:          gvk.DataDownloadGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No DataDownload was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			dd := item.(*velerov2alpha1.DataDownload)
+			errMsg := ""
 
-		for _, dataDownload := range dataDownloadList.Items {
-			dataDownloadByNamespace[dataDownload.Namespace] = append(dataDownloadByNamespace[dataDownload.Namespace], dataDownload)
-		}
-
-		summaryTemplateReplaces["DATA_DOWNLOADS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, dataDownloads := range dataDownloadByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/datadownloads", namespace)
-			file := folder + "/datadownloads.yaml"
-			for _, dataDownload := range dataDownloads {
-				dataDownload.GetObjectKind().SetGroupVersionKind(gvk.DataDownloadGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &dataDownload})
-
-				dataDownloadStatus := ""
-				dataDownloadStatusPhase := dataDownload.Status.Phase
-				if len(dataDownloadStatusPhase) == 0 {
-					dataDownloadStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ DataDownload **%v** with **no status phase** in **%v** namespace\n\n",
-						dataDownload.Name, namespace,
-					)
-				} else {
-					failedStates := []velerov2alpha1.DataDownloadPhase{
-						velerov2alpha1.DataDownloadPhaseCanceling,
-						velerov2alpha1.DataDownloadPhaseCanceled,
-						velerov2alpha1.DataDownloadPhaseFailed,
-					}
-					if dataDownloadStatusPhase == velerov2alpha1.DataDownloadPhaseCompleted {
-						dataDownloadStatus = fmt.Sprintf("✅ status phase %s", dataDownloadStatusPhase)
-					} else if slices.Contains(failedStates, dataDownloadStatusPhase) {
-						dataDownloadStatus = fmt.Sprintf("❌ status phase %s", dataDownloadStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ DataDownload **%v** with **status phase %s** in **%v** namespace\n\n",
-							dataDownload.Name, dataDownloadStatusPhase, namespace,
-						)
-					} else {
-						dataDownloadStatus = fmt.Sprintf("⚠️ status phase %s", dataDownloadStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["DATA_DOWNLOADS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, dataDownload.Name, dataDownloadStatus, link,
-				)
+			status := ""
+			switch phase := dd.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ DataDownload **%v** with **no status phase** in **%v** namespace\n\n", dd.Name, dd.Namespace)
+			case phase == velerov2alpha1.DataDownloadPhaseCompleted:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case slices.Contains([]velerov2alpha1.DataDownloadPhase{
+				velerov2alpha1.DataDownloadPhaseCanceling,
+				velerov2alpha1.DataDownloadPhaseCanceled,
+				velerov2alpha1.DataDownloadPhaseFailed,
+			}, phase):
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ DataDownload **%v** with **status phase %s** in **%v** namespace\n\n", dd.Name, phase, dd.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["DATA_DOWNLOADS"] = "❌ No DataDownload was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", dd.Namespace, dd.Name, status, link)
+			return row, errMsg
+		},
+	}, dataDownloadList)
 }
 
 func ReplacePodVolumeBackupsSection(outputPath string, podVolumeBackupList *velerov1.PodVolumeBackupList) {
-	if podVolumeBackupList != nil && len(podVolumeBackupList.Items) != 0 {
-		podVolumeBackupsByNamespace := map[string][]velerov1.PodVolumeBackup{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "POD_VOLUME_BACKUPS",
+		APIGroup:     "velero.io",
+		ResourceName: "podvolumebackups",
+		GVK:          gvk.PodVolumeBackupGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No PodVolumeBackup was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			pvb := item.(*velerov1.PodVolumeBackup)
+			errMsg := ""
 
-		for _, podVolumeBackup := range podVolumeBackupList.Items {
-			podVolumeBackupsByNamespace[podVolumeBackup.Namespace] = append(podVolumeBackupsByNamespace[podVolumeBackup.Namespace], podVolumeBackup)
-		}
-
-		summaryTemplateReplaces["POD_VOLUME_BACKUPS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, podVolumeBackups := range podVolumeBackupsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/podvolumebackups", namespace)
-			file := folder + "/podvolumebackups.yaml"
-			for _, podVolumeBackup := range podVolumeBackups {
-				podVolumeBackup.GetObjectKind().SetGroupVersionKind(gvk.PodVolumeBackupGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &podVolumeBackup})
-
-				podVolumeBackupStatus := ""
-				podVolumeBackupStatusPhase := podVolumeBackup.Status.Phase
-				if len(podVolumeBackupStatusPhase) == 0 {
-					podVolumeBackupStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ PodVolumeBackup **%v** with **no status phase** in **%v** namespace\n\n",
-						podVolumeBackup.Name, namespace,
-					)
-				} else {
-					if podVolumeBackupStatusPhase == velerov1.PodVolumeBackupPhaseCompleted {
-						podVolumeBackupStatus = fmt.Sprintf("✅ status phase %s", podVolumeBackupStatusPhase)
-					} else if podVolumeBackupStatusPhase == velerov1.PodVolumeBackupPhaseFailed {
-						podVolumeBackupStatus = fmt.Sprintf("❌ status phase %s", podVolumeBackupStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ PodVolumeBackup **%v** with **status phase %s** in **%v** namespace\n\n",
-							podVolumeBackup.Name, podVolumeBackupStatusPhase, namespace,
-						)
-					} else {
-						podVolumeBackupStatus = fmt.Sprintf("⚠️ status phase %s", podVolumeBackupStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["POD_VOLUME_BACKUPS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, podVolumeBackup.Name, podVolumeBackupStatus, link,
-				)
+			status := ""
+			switch phase := pvb.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ PodVolumeBackup **%v** with **no status phase** in **%v** namespace\n\n", pvb.Name, pvb.Namespace)
+			case phase == velerov1.PodVolumeBackupPhaseCompleted:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == velerov1.PodVolumeBackupPhaseFailed:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ PodVolumeBackup **%v** with **status phase %s** in **%v** namespace\n\n", pvb.Name, phase, pvb.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["POD_VOLUME_BACKUPS"] = "❌ No PodVolumeBackup was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", pvb.Namespace, pvb.Name, status, link)
+			return row, errMsg
+		},
+	}, podVolumeBackupList)
 }
 
 func ReplacePodVolumeRestoresSection(outputPath string, podVolumeRestoreList *velerov1.PodVolumeRestoreList) {
-	if podVolumeRestoreList != nil && len(podVolumeRestoreList.Items) != 0 {
-		podVolumeRestoresByNamespace := map[string][]velerov1.PodVolumeRestore{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "POD_VOLUME_RESTORES",
+		APIGroup:     "velero.io",
+		ResourceName: "podvolumerestores",
+		GVK:          gvk.PodVolumeRestoreGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No PodVolumeRestore was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			pvr := item.(*velerov1.PodVolumeRestore)
+			errMsg := ""
 
-		for _, podVolumeRestore := range podVolumeRestoreList.Items {
-			podVolumeRestoresByNamespace[podVolumeRestore.Namespace] = append(podVolumeRestoresByNamespace[podVolumeRestore.Namespace], podVolumeRestore)
-		}
-
-		summaryTemplateReplaces["POD_VOLUME_RESTORES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, podVolumeRestores := range podVolumeRestoresByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/podvolumerestores", namespace)
-			file := folder + "/podvolumerestores.yaml"
-			for _, podVolumeRestore := range podVolumeRestores {
-				podVolumeRestore.GetObjectKind().SetGroupVersionKind(gvk.PodVolumeRestoreGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &podVolumeRestore})
-
-				podVolumeRestoreStatus := ""
-				podVolumeRestoreStatusPhase := podVolumeRestore.Status.Phase
-				if len(podVolumeRestoreStatusPhase) == 0 {
-					podVolumeRestoreStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ PodVolumeRestore **%v** with **no status phase** in **%v** namespace\n\n",
-						podVolumeRestore.Name, namespace,
-					)
-				} else {
-					if podVolumeRestoreStatusPhase == velerov1.PodVolumeRestorePhaseCompleted {
-						podVolumeRestoreStatus = fmt.Sprintf("✅ status phase %s", podVolumeRestoreStatusPhase)
-					} else if podVolumeRestoreStatusPhase == velerov1.PodVolumeRestorePhaseFailed {
-						podVolumeRestoreStatus = fmt.Sprintf("❌ status phase %s", podVolumeRestoreStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ PodVolumeRestore **%v** with **status phase %s** in **%v** namespace\n\n",
-							podVolumeRestore.Name, podVolumeRestoreStatusPhase, namespace,
-						)
-					} else {
-						podVolumeRestoreStatus = fmt.Sprintf("⚠️ status phase %s", podVolumeRestoreStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["POD_VOLUME_RESTORES"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, podVolumeRestore.Name, podVolumeRestoreStatus, link,
-				)
+			status := ""
+			switch phase := pvr.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ PodVolumeRestore **%v** with **no status phase** in **%v** namespace\n\n", pvr.Name, pvr.Namespace)
+			case phase == velerov1.PodVolumeRestorePhaseCompleted:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == velerov1.PodVolumeRestorePhaseFailed:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ PodVolumeRestore **%v** with **status phase %s** in **%v** namespace\n\n", pvr.Name, phase, pvr.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["POD_VOLUME_RESTORES"] = "❌ No PodVolumeRestore was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", pvr.Namespace, pvr.Name, status, link)
+			return row, errMsg
+		},
+	}, podVolumeRestoreList)
 }
 
 func ReplaceDownloadRequestsSection(outputPath string, downloadRequestList *velerov1.DownloadRequestList) {
-	if downloadRequestList != nil && len(downloadRequestList.Items) != 0 {
-		downloadRequestsByNamespace := map[string][]velerov1.DownloadRequest{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "DOWNLOAD_REQUESTS",
+		APIGroup:     "velero.io",
+		ResourceName: "downloadrequests",
+		GVK:          gvk.DownloadRequestGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No DownloadRequest was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			dr := item.(*velerov1.DownloadRequest)
+			errMsg := ""
 
-		for _, downloadRequest := range downloadRequestList.Items {
-			downloadRequestsByNamespace[downloadRequest.Namespace] = append(downloadRequestsByNamespace[downloadRequest.Namespace], downloadRequest)
-		}
-
-		summaryTemplateReplaces["DOWNLOAD_REQUESTS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, downloadRequests := range downloadRequestsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/downloadrequests", namespace)
-			file := folder + "/downloadrequests.yaml"
-			for _, downloadRequest := range downloadRequests {
-				downloadRequest.GetObjectKind().SetGroupVersionKind(gvk.DownloadRequestGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &downloadRequest})
-
-				downloadRequestStatus := ""
-				downloadRequestStatusPhase := downloadRequest.Status.Phase
-				if len(downloadRequestStatusPhase) == 0 {
-					downloadRequestStatus = "⚠️ no status"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ DownloadRequest **%v** with **no status** in **%v** namespace\n\n",
-						downloadRequest.Name, namespace,
-					)
-				} else {
-					if downloadRequestStatusPhase == velerov1.DownloadRequestPhaseProcessed {
-						downloadRequestStatus = fmt.Sprintf("✅ status phase %s", downloadRequestStatusPhase)
-					} else {
-						downloadRequestStatus = fmt.Sprintf("⚠️ status phase %s", downloadRequestStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["DOWNLOAD_REQUESTS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, downloadRequest.Name, downloadRequestStatus, link,
-				)
+			status := ""
+			switch phase := dr.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status"
+				errMsg += fmt.Sprintf("⚠️ DownloadRequest **%v** with **no status** in **%v** namespace\n\n", dr.Name, dr.Namespace)
+			case phase == velerov1.DownloadRequestPhaseProcessed:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["DOWNLOAD_REQUESTS"] = "❌ No DownloadRequest was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", dr.Namespace, dr.Name, status, link)
+			return row, errMsg
+		},
+	}, downloadRequestList)
 }
 
 func ReplaceDeleteBackupRequestsSection(outputPath string, deleteBackupRequestList *velerov1.DeleteBackupRequestList) {
-	if deleteBackupRequestList != nil && len(deleteBackupRequestList.Items) != 0 {
-		deleteBackupRequestsByNamespace := map[string][]velerov1.DeleteBackupRequest{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "DELETE_BACKUP_REQUESTS",
+		APIGroup:     "velero.io",
+		ResourceName: "deletebackuprequests",
+		GVK:          gvk.DeleteBackupRequestGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No DeleteBackupRequest was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			dbr := item.(*velerov1.DeleteBackupRequest)
+			errMsg := ""
 
-		for _, deleteBackupRequest := range deleteBackupRequestList.Items {
-			deleteBackupRequestsByNamespace[deleteBackupRequest.Namespace] = append(deleteBackupRequestsByNamespace[deleteBackupRequest.Namespace], deleteBackupRequest)
-		}
-
-		summaryTemplateReplaces["DELETE_BACKUP_REQUESTS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, deleteBackupRequests := range deleteBackupRequestsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/deletebackuprequests", namespace)
-			file := folder + "/deletebackuprequests.yaml"
-			for _, deleteBackupRequest := range deleteBackupRequests {
-				deleteBackupRequest.GetObjectKind().SetGroupVersionKind(gvk.DeleteBackupRequestGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &deleteBackupRequest})
-
-				deleteBackupRequestStatus := ""
-				deleteBackupRequestStatusPhase := deleteBackupRequest.Status.Phase
-				if len(deleteBackupRequestStatusPhase) == 0 {
-					deleteBackupRequestStatus = "⚠️ no status"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ DeleteBackupRequest **%v** with **no status** in **%v** namespace\n\n",
-						deleteBackupRequest.Name, namespace,
-					)
-				} else {
-					if deleteBackupRequestStatusPhase == velerov1.DeleteBackupRequestPhaseProcessed {
-						deleteBackupRequestStatus = fmt.Sprintf("✅ status phase %s", deleteBackupRequestStatusPhase)
-					} else {
-						deleteBackupRequestStatus = fmt.Sprintf("⚠️ status phase %s", deleteBackupRequestStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["DELETE_BACKUP_REQUESTS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, deleteBackupRequest.Name, deleteBackupRequestStatus, link,
-				)
+			status := ""
+			switch phase := dbr.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status"
+				errMsg += fmt.Sprintf("⚠️ DeleteBackupRequest **%v** with **no status** in **%v** namespace\n\n", dbr.Name, dbr.Namespace)
+			case phase == velerov1.DeleteBackupRequestPhaseProcessed:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["DELETE_BACKUP_REQUESTS"] = "❌ No DeleteBackupRequest was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", dbr.Namespace, dbr.Name, status, link)
+			return row, errMsg
+		},
+	}, deleteBackupRequestList)
 }
 
 func ReplaceServerStatusRequestsSection(outputPath string, serverStatusRequestList *velerov1.ServerStatusRequestList) {
-	if serverStatusRequestList != nil && len(serverStatusRequestList.Items) != 0 {
-		serverStatusRequestsByNamespace := map[string][]velerov1.ServerStatusRequest{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "SERVER_STATUS_REQUESTS",
+		APIGroup:     "velero.io",
+		ResourceName: "serverstatusrequests",
+		GVK:          gvk.ServerStatusRequestGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No ServerStatusRequest was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			ssr := item.(*velerov1.ServerStatusRequest)
+			errMsg := ""
 
-		for _, serverStatusRequest := range serverStatusRequestList.Items {
-			serverStatusRequestsByNamespace[serverStatusRequest.Namespace] = append(serverStatusRequestsByNamespace[serverStatusRequest.Namespace], serverStatusRequest)
-		}
-
-		summaryTemplateReplaces["SERVER_STATUS_REQUESTS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, serverStatusRequests := range serverStatusRequestsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/velero.io/serverstatusrequests", namespace)
-			file := folder + "/serverstatusrequests.yaml"
-			for _, serverStatusRequest := range serverStatusRequests {
-				serverStatusRequest.GetObjectKind().SetGroupVersionKind(gvk.ServerStatusRequestGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &serverStatusRequest})
-
-				serverStatusRequestStatus := ""
-				serverStatusRequestStatusPhase := serverStatusRequest.Status.Phase
-				if len(serverStatusRequestStatusPhase) == 0 {
-					serverStatusRequestStatus = "⚠️ no status"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ ServerStatusRequest **%v** with **no status** in **%v** namespace\n\n",
-						serverStatusRequest.Name, namespace,
-					)
-				} else {
-					if serverStatusRequestStatusPhase == velerov1.ServerStatusRequestPhaseProcessed {
-						serverStatusRequestStatus = fmt.Sprintf("✅ status phase %s", serverStatusRequestStatusPhase)
-					} else {
-						serverStatusRequestStatus = fmt.Sprintf("⚠️ status phase %s", serverStatusRequestStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["SERVER_STATUS_REQUESTS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, serverStatusRequest.Name, serverStatusRequestStatus, link,
-				)
+			status := ""
+			switch phase := ssr.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status"
+				errMsg += fmt.Sprintf("⚠️ ServerStatusRequest **%v** with **no status** in **%v** namespace\n\n", ssr.Name, ssr.Namespace)
+			case phase == velerov1.ServerStatusRequestPhaseProcessed:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["SERVER_STATUS_REQUESTS"] = "❌ No ServerStatusRequest was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", ssr.Namespace, ssr.Name, status, link)
+			return row, errMsg
+		},
+	}, serverStatusRequestList)
 }
 
 func ReplaceNonAdminBackupStorageLocationRequestsSection(outputPath string, nonAdminBackupStorageLocationRequestList *nac1alpha1.NonAdminBackupStorageLocationRequestList) {
-	if nonAdminBackupStorageLocationRequestList != nil && len(nonAdminBackupStorageLocationRequestList.Items) != 0 {
-		nonAdminBackupStorageLocationRequestsByNamespace := map[string][]nac1alpha1.NonAdminBackupStorageLocationRequest{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "NON_ADMIN_BACKUP_STORAGE_LOCATION_REQUESTS",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "nonadminbackupstoragelocationrequests",
+		GVK:          gvk.NonAdminBackupStorageLocationRequestGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No NonAdminBackupStorageLocationRequest was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			req := item.(*nac1alpha1.NonAdminBackupStorageLocationRequest)
+			errMsg := ""
 
-		for _, request := range nonAdminBackupStorageLocationRequestList.Items {
-			nonAdminBackupStorageLocationRequestsByNamespace[request.Namespace] = append(nonAdminBackupStorageLocationRequestsByNamespace[request.Namespace], request)
-		}
-
-		summaryTemplateReplaces["NON_ADMIN_BACKUP_STORAGE_LOCATION_REQUESTS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, requests := range nonAdminBackupStorageLocationRequestsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/nonadminbackupstoragelocationrequests", namespace)
-			file := folder + "/nonadminbackupstoragelocationrequests.yaml"
-			for _, request := range requests {
-				request.GetObjectKind().SetGroupVersionKind(gvk.NonAdminBackupStorageLocationRequestGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &request})
-
-				requestStatus := ""
-				requestStatusPhase := request.Status.Phase
-				if len(requestStatusPhase) == 0 {
-					requestStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ NonAdminBackupStorageLocationRequest **%v** with **no status phase** in **%v** namespace\n\n",
-						request.Name, namespace,
-					)
-				} else {
-					if requestStatusPhase == nac1alpha1.NonAdminBSLRequestPhaseApproved {
-						requestStatus = fmt.Sprintf("✅ status phase %s", requestStatusPhase)
-					} else if requestStatusPhase == nac1alpha1.NonAdminBSLRequestPhaseRejected {
-						requestStatus = fmt.Sprintf("❌ status phase %s", requestStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ NonAdminBackupStorageLocationRequest **%v** with **status phase %s** in **%v** namespace\n\n",
-							request.Name, requestStatusPhase, namespace,
-						)
-					} else {
-						requestStatus = fmt.Sprintf("⚠️ status phase %s", requestStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["NON_ADMIN_BACKUP_STORAGE_LOCATION_REQUESTS"] += fmt.Sprintf(
-					"| %v | %v | %v | %s |\n",
-					namespace, request.Name, requestStatus, link,
-				)
+			status := ""
+			switch phase := req.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ NonAdminBackupStorageLocationRequest **%v** with **no status phase** in **%v** namespace\n\n", req.Name, req.Namespace)
+			case phase == nac1alpha1.NonAdminBSLRequestPhaseApproved:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == nac1alpha1.NonAdminBSLRequestPhaseRejected:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ NonAdminBackupStorageLocationRequest **%v** with **status phase %s** in **%v** namespace\n\n", req.Name, phase, req.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["NON_ADMIN_BACKUP_STORAGE_LOCATION_REQUESTS"] = "❌ No NonAdminBackupStorageLocationRequest was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %v | %s |\n", req.Namespace, req.Name, status, link)
+			return row, errMsg
+		},
+	}, nonAdminBackupStorageLocationRequestList)
 }
 
 func ReplaceNonAdminBackupStorageLocationsSection(outputPath string, nonAdminBackupStorageLocationList *nac1alpha1.NonAdminBackupStorageLocationList) {
-	if nonAdminBackupStorageLocationList != nil && len(nonAdminBackupStorageLocationList.Items) != 0 {
-		nonAdminBackupStorageLocationsByNamespace := map[string][]nac1alpha1.NonAdminBackupStorageLocation{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "NON_ADMIN_BACKUP_STORAGE_LOCATIONS",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "nonadminbackupstoragelocations",
+		GVK:          gvk.NonAdminBackupStorageLocationGVK,
+		TableHeader:  "| Namespace | Name | Approved | status.phase | yaml |\n| --- | --- | --- | --- | --- |\n",
+		EmptyMessage: "No NonAdminBackupStorageLocation was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			bsl := item.(*nac1alpha1.NonAdminBackupStorageLocation)
+			errMsg := ""
 
-		for _, backupStorageLocation := range nonAdminBackupStorageLocationList.Items {
-			nonAdminBackupStorageLocationsByNamespace[backupStorageLocation.Namespace] = append(nonAdminBackupStorageLocationsByNamespace[backupStorageLocation.Namespace], backupStorageLocation)
-		}
-
-		summaryTemplateReplaces["NON_ADMIN_BACKUP_STORAGE_LOCATIONS"] += "| Namespace | Name | Approved | status.phase | yaml |\n| --- | --- | --- | --- | --- |\n"
-		for namespace, backupStorageLocations := range nonAdminBackupStorageLocationsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/nonadminbackupstoragelocations", namespace)
-			file := folder + "/nonadminbackupstoragelocations.yaml"
-			for _, backupStorageLocation := range backupStorageLocations {
-				backupStorageLocation.GetObjectKind().SetGroupVersionKind(gvk.NonAdminBackupStorageLocationGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &backupStorageLocation})
-
-				bslStatus := ""
-				bslStatusPhase := backupStorageLocation.Status.Phase
-				if len(bslStatusPhase) == 0 {
-					bslStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ NonAdminBackupStorageLocation **%v** with **no status phase** in **%v** namespace\n\n",
-						backupStorageLocation.Name, namespace,
-					)
-				} else {
-					if bslStatusPhase == nac1alpha1.NonAdminPhaseCreated {
-						bslStatus = fmt.Sprintf("✅ status phase %s", bslStatusPhase)
-					} else if bslStatusPhase == nac1alpha1.NonAdminPhaseBackingOff {
-						bslStatus = fmt.Sprintf("❌ status phase %s", bslStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ NonAdminBackupStorageLocation **%v** with **status phase %s** in **%v** namespace\n\n",
-							backupStorageLocation.Name, bslStatusPhase, namespace,
-						)
-					} else {
-						bslStatus = fmt.Sprintf("⚠️ status phase %s", bslStatusPhase)
-					}
-				}
-				bslStatusApproved := ""
-				conditionInNABSL := meta.FindStatusCondition(backupStorageLocation.Status.Conditions, string(nac1alpha1.NonAdminBSLConditionApproved))
-				if conditionInNABSL == nil {
-					bslStatusApproved = "⚠️ no status condition approved"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ NonAdminBackupStorageLocation **%v** with **no status condition approved** in **%v** namespace\n\n",
-						backupStorageLocation.Name, namespace,
-					)
-				} else {
-					if conditionInNABSL.Status == v1.ConditionTrue {
-						bslStatusApproved = fmt.Sprintf("✅ status condition approved %s", conditionInNABSL.Status)
-					} else {
-						bslStatusApproved = fmt.Sprintf("❌ status condition approved %s", conditionInNABSL.Status)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["NON_ADMIN_BACKUP_STORAGE_LOCATIONS"] += fmt.Sprintf(
-					"| %v | %v | %s | %v | %s |\n",
-					namespace, backupStorageLocation.Name, bslStatusApproved, bslStatus, link,
-				)
+			bslStatus := ""
+			switch bslStatusPhase := bsl.Status.Phase; {
+			case len(bslStatusPhase) == 0:
+				bslStatus = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ NonAdminBackupStorageLocation **%v** with **no status phase** in **%v** namespace\n\n", bsl.Name, bsl.Namespace)
+			case bslStatusPhase == nac1alpha1.NonAdminPhaseCreated:
+				bslStatus = fmt.Sprintf("✅ status phase %s", bslStatusPhase)
+			case bslStatusPhase == nac1alpha1.NonAdminPhaseBackingOff:
+				bslStatus = fmt.Sprintf("❌ status phase %s", bslStatusPhase)
+				errMsg += fmt.Sprintf("❌ NonAdminBackupStorageLocation **%v** with **status phase %s** in **%v** namespace\n\n", bsl.Name, bslStatusPhase, bsl.Namespace)
+			default:
+				bslStatus = fmt.Sprintf("⚠️ status phase %s", bslStatusPhase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["NON_ADMIN_BACKUP_STORAGE_LOCATIONS"] = "❌ No NonAdminBackupStorageLocation was found in the cluster"
-	}
+			bslStatusApproved := ""
+			conditionInNABSL := meta.FindStatusCondition(bsl.Status.Conditions, string(nac1alpha1.NonAdminBSLConditionApproved))
+			if conditionInNABSL == nil {
+				bslStatusApproved = "⚠️ no status condition approved"
+				errMsg += fmt.Sprintf("⚠️ NonAdminBackupStorageLocation **%v** with **no status condition approved** in **%v** namespace\n\n", bsl.Name, bsl.Namespace)
+			} else {
+				if conditionInNABSL.Status == v1.ConditionTrue {
+					bslStatusApproved = fmt.Sprintf("✅ status condition approved %s", conditionInNABSL.Status)
+				} else {
+					bslStatusApproved = fmt.Sprintf("❌ status condition approved %s", conditionInNABSL.Status)
+				}
+			}
+
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %v | %s |\n", bsl.Namespace, bsl.Name, bslStatusApproved, bslStatus, link)
+			return row, errMsg
+		},
+	}, nonAdminBackupStorageLocationList)
 }
 
 func ReplaceNonAdminBackupsSection(outputPath string, nonAdminBackupList *nac1alpha1.NonAdminBackupList) {
-	if nonAdminBackupList != nil && len(nonAdminBackupList.Items) != 0 {
-		backupsByNamespace := map[string][]nac1alpha1.NonAdminBackup{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "NON_ADMIN_BACKUPS",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "nonadminbackups",
+		GVK:          gvk.NonAdminBackupGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No NonAdminBackup was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			backup := item.(*nac1alpha1.NonAdminBackup)
+			errMsg := ""
 
-		for _, backup := range nonAdminBackupList.Items {
-			backupsByNamespace[backup.Namespace] = append(backupsByNamespace[backup.Namespace], backup)
-		}
-
-		summaryTemplateReplaces["NON_ADMIN_BACKUPS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, backups := range backupsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/nonadminbackups", namespace)
-			file := folder + "/nonadminbackups.yaml"
-			for _, backup := range backups {
-				backup.GetObjectKind().SetGroupVersionKind(gvk.NonAdminBackupGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &backup})
-
-				backupStatus := ""
-				backupStatusPhase := backup.Status.Phase
-				if len(backupStatusPhase) == 0 {
-					backupStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ NonAdminBackup **%v** with **no status phase** in **%v** namespace\n\n",
-						backup.Name, namespace,
-					)
-				} else {
-					if backupStatusPhase == nac1alpha1.NonAdminPhaseCreated {
-						backupStatus = fmt.Sprintf("✅ status phase %s", backupStatusPhase)
-					} else if backupStatusPhase == nac1alpha1.NonAdminPhaseBackingOff {
-						backupStatus = fmt.Sprintf("❌ status phase %s", backupStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ NonAdminBackup **%v** with **status phase %s** in **%v** namespace\n\n",
-							backup.Name, backupStatusPhase, namespace,
-						)
-					} else {
-						backupStatus = fmt.Sprintf("⚠️ status phase %s", backupStatusPhase)
-					}
-				}
-
-				yamlLink := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["NON_ADMIN_BACKUPS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, backup.Name,
-					backupStatus,
-					yamlLink,
-				)
+			status := ""
+			switch phase := backup.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ NonAdminBackup **%v** with **no status phase** in **%v** namespace\n\n", backup.Name, backup.Namespace)
+			case phase == nac1alpha1.NonAdminPhaseCreated:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == nac1alpha1.NonAdminPhaseBackingOff:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ NonAdminBackup **%v** with **status phase %s** in **%v** namespace\n\n", backup.Name, phase, backup.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["NON_ADMIN_BACKUPS"] = "❌ No NonAdminBackup was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", backup.Namespace, backup.Name, status, link)
+			return row, errMsg
+		},
+	}, nonAdminBackupList)
 }
 
 func ReplaceNonAdminRestoresSection(outputPath string, nonAdminRestoreList *nac1alpha1.NonAdminRestoreList) {
-	if nonAdminRestoreList != nil && len(nonAdminRestoreList.Items) != 0 {
-		restoresByNamespace := map[string][]nac1alpha1.NonAdminRestore{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "NON_ADMIN_RESTORES",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "nonadminrestores",
+		GVK:          gvk.NonAdminRestoreGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No NonAdminRestore was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			restore := item.(*nac1alpha1.NonAdminRestore)
+			errMsg := ""
 
-		for _, restore := range nonAdminRestoreList.Items {
-			restoresByNamespace[restore.Namespace] = append(restoresByNamespace[restore.Namespace], restore)
-		}
-
-		summaryTemplateReplaces["NON_ADMIN_RESTORES"] += "| Namespace | Name | status.phase | describe | logs | yaml |\n| --- | --- | --- | --- | --- | --- |\n"
-		for namespace, restores := range restoresByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/nonadminrestores", namespace)
-			file := folder + "/nonadminrestores.yaml"
-			for _, restore := range restores {
-				restore.GetObjectKind().SetGroupVersionKind(gvk.NonAdminRestoreGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &restore})
-
-				restoreStatus := ""
-				restoreStatusPhase := restore.Status.Phase
-				if len(restoreStatusPhase) == 0 {
-					restoreStatus = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ NonAdminRestore **%v** with **no status phase** in **%v** namespace\n\n",
-						restore.Name, namespace,
-					)
-				} else {
-					if restoreStatusPhase == nac1alpha1.NonAdminPhaseCreated {
-						restoreStatus = fmt.Sprintf("✅ status phase %s", restoreStatusPhase)
-					} else if restoreStatusPhase == nac1alpha1.NonAdminPhaseBackingOff {
-						restoreStatus = fmt.Sprintf("❌ status phase %s", restoreStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ NonAdminRestore **%v** with **status phase %s** in **%v** namespace\n\n",
-							restore.Name, restoreStatusPhase, namespace,
-						)
-					} else {
-						restoreStatus = fmt.Sprintf("⚠️ status phase %s", restoreStatusPhase)
-					}
-				}
-
-				yamllink := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["NON_ADMIN_RESTORES"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, restore.Name,
-					restoreStatus,
-					yamllink,
-				)
+			status := ""
+			switch phase := restore.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ NonAdminRestore **%v** with **no status phase** in **%v** namespace\n\n", restore.Name, restore.Namespace)
+			case phase == nac1alpha1.NonAdminPhaseCreated:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == nac1alpha1.NonAdminPhaseBackingOff:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ NonAdminRestore **%v** with **status phase %s** in **%v** namespace\n\n", restore.Name, phase, restore.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["NON_ADMIN_RESTORES"] = "❌ No NonAdminRestore was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", restore.Namespace, restore.Name, status, link)
+			return row, errMsg
+		},
+	}, nonAdminRestoreList)
 }
 
 func ReplaceNonAdminDownloadRequestsSection(outputPath string, nonAdminDownloadRequestList *nac1alpha1.NonAdminDownloadRequestList) {
-	if nonAdminDownloadRequestList != nil && len(nonAdminDownloadRequestList.Items) != 0 {
-		downloadRequestsByNamespace := map[string][]nac1alpha1.NonAdminDownloadRequest{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "NON_ADMIN_DOWNLOAD_REQUESTS",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "nonadmindownloadrequests",
+		GVK:          gvk.NonAdminDownloadRequestGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No NonAdminDownloadRequest was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			dr := item.(*nac1alpha1.NonAdminDownloadRequest)
+			errMsg := ""
 
-		for _, downloadRequest := range nonAdminDownloadRequestList.Items {
-			downloadRequestsByNamespace[downloadRequest.Namespace] = append(downloadRequestsByNamespace[downloadRequest.Namespace], downloadRequest)
-		}
-
-		summaryTemplateReplaces["NON_ADMIN_DOWNLOAD_REQUESTS"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, downloadRequests := range downloadRequestsByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/nonadmindownloadrequests", namespace)
-			file := folder + "/nonadmindownloadrequests.yaml"
-			for _, downloadRequest := range downloadRequests {
-				downloadRequest.GetObjectKind().SetGroupVersionKind(gvk.NonAdminDownloadRequestGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &downloadRequest})
-
-				downloadRequestStatus := ""
-				downloadRequestStatusPhase := downloadRequest.Status.Phase
-				if len(downloadRequestStatusPhase) == 0 {
-					downloadRequestStatus = "⚠️ no status"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ NonAdminDownloadRequest **%v** with **no status** in **%v** namespace\n\n",
-						downloadRequest.Name, namespace,
-					)
-				} else {
-					if downloadRequestStatusPhase == nac1alpha1.NonAdminPhaseCreated {
-						downloadRequestStatus = fmt.Sprintf("✅ status phase %s", downloadRequestStatusPhase)
-					} else if downloadRequestStatusPhase == nac1alpha1.NonAdminPhaseBackingOff {
-						downloadRequestStatus = fmt.Sprintf("❌ status phase %s", downloadRequestStatusPhase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ NonAdminDownloadRequest **%v** with **status phase %s** in **%v** namespace\n\n",
-							downloadRequest.Name, downloadRequestStatusPhase, namespace,
-						)
-					} else {
-						downloadRequestStatus = fmt.Sprintf("⚠️ status phase %s", downloadRequestStatusPhase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["NON_ADMIN_DOWNLOAD_REQUESTS"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, downloadRequest.Name, downloadRequestStatus, link,
-				)
+			status := ""
+			switch phase := dr.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status"
+				errMsg += fmt.Sprintf("⚠️ NonAdminDownloadRequest **%v** with **no status** in **%v** namespace\n\n", dr.Name, dr.Namespace)
+			case phase == nac1alpha1.NonAdminPhaseCreated:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case phase == nac1alpha1.NonAdminPhaseBackingOff:
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ NonAdminDownloadRequest **%v** with **status phase %s** in **%v** namespace\n\n", dr.Name, phase, dr.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["NON_ADMIN_DOWNLOAD_REQUESTS"] = "❌ No NonAdminDownloadRequest was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", dr.Namespace, dr.Name, status, link)
+			return row, errMsg
+		},
+	}, nonAdminDownloadRequestList)
 }
 
 func ReplaceVirtualMachineBackupsDiscoveriesSection(outputPath string, vmBackupsDiscoveryList *vmfrv1alpha1.VirtualMachineBackupsDiscoveryList) {
-	if vmBackupsDiscoveryList != nil && len(vmBackupsDiscoveryList.Items) != 0 {
-		discoveryByNamespace := map[string][]vmfrv1alpha1.VirtualMachineBackupsDiscovery{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "VIRTUAL_MACHINE_BACKUPS_DISCOVERIES",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "virtualmachinebackupsdiscoveries",
+		GVK:          gvk.VirtualMachineBackupsDiscoveryGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No VirtualMachineBackupsDiscovery was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			discovery := item.(*vmfrv1alpha1.VirtualMachineBackupsDiscovery)
+			errMsg := ""
 
-		for _, discovery := range vmBackupsDiscoveryList.Items {
-			discoveryByNamespace[discovery.Namespace] = append(discoveryByNamespace[discovery.Namespace], discovery)
-		}
-
-		summaryTemplateReplaces["VIRTUAL_MACHINE_BACKUPS_DISCOVERIES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, discoveries := range discoveryByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/virtualmachinebackupsdiscoveries", namespace)
-			file := folder + "/virtualmachinebackupsdiscoveries.yaml"
-			for _, discovery := range discoveries {
-				discovery.GetObjectKind().SetGroupVersionKind(gvk.VirtualMachineBackupsDiscoveryGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &discovery})
-
-				status := ""
-				phase := discovery.Status.Phase
-				if len(phase) == 0 {
-					status = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ VirtualMachineBackupsDiscovery **%v** with **no status phase** in **%v** namespace\n\n",
-						discovery.Name, namespace,
-					)
-				} else {
-					failedStates := []vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhase{
-						vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhaseFailed,
-						vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhasePartiallyFailed,
-					}
-					if phase == vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhaseCompleted {
-						status = fmt.Sprintf("✅ status phase %s", phase)
-					} else if slices.Contains(failedStates, phase) {
-						status = fmt.Sprintf("❌ status phase %s", phase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ VirtualMachineBackupsDiscovery **%v** with **status phase %s** in **%v** namespace\n\n",
-							discovery.Name, phase, namespace,
-						)
-					} else {
-						status = fmt.Sprintf("⚠️ status phase %s", phase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["VIRTUAL_MACHINE_BACKUPS_DISCOVERIES"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, discovery.Name, status, link,
-				)
+			status := ""
+			switch phase := discovery.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ VirtualMachineBackupsDiscovery **%v** with **no status phase** in **%v** namespace\n\n", discovery.Name, discovery.Namespace)
+			case phase == vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhaseCompleted:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case slices.Contains([]vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhase{
+				vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhaseFailed,
+				vmfrv1alpha1.VirtualMachineBackupsDiscoveryPhasePartiallyFailed,
+			}, phase):
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ VirtualMachineBackupsDiscovery **%v** with **status phase %s** in **%v** namespace\n\n", discovery.Name, phase, discovery.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["VIRTUAL_MACHINE_BACKUPS_DISCOVERIES"] = "❌ No VirtualMachineBackupsDiscovery was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", discovery.Namespace, discovery.Name, status, link)
+			return row, errMsg
+		},
+	}, vmBackupsDiscoveryList)
 }
 
 func ReplaceVirtualMachineFileRestoresSection(outputPath string, vmFileRestoreList *vmfrv1alpha1.VirtualMachineFileRestoreList) {
-	if vmFileRestoreList != nil && len(vmFileRestoreList.Items) != 0 {
-		restoreByNamespace := map[string][]vmfrv1alpha1.VirtualMachineFileRestore{}
+	ReplaceSection(outputPath, SectionConfig{
+		TemplateKey:  "VIRTUAL_MACHINE_FILE_RESTORES",
+		APIGroup:     "oadp.openshift.io",
+		ResourceName: "virtualmachinefilerestores",
+		GVK:          gvk.VirtualMachineFileRestoreGVK,
+		TableHeader:  "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n",
+		EmptyMessage: "No VirtualMachineFileRestore was found in the cluster",
+		ErrorOnEmpty: false,
+		RowBuilder: func(item client.Object, filePath string) (string, string) {
+			restore := item.(*vmfrv1alpha1.VirtualMachineFileRestore)
+			errMsg := ""
 
-		for _, restore := range vmFileRestoreList.Items {
-			restoreByNamespace[restore.Namespace] = append(restoreByNamespace[restore.Namespace], restore)
-		}
-
-		summaryTemplateReplaces["VIRTUAL_MACHINE_FILE_RESTORES"] += "| Namespace | Name | status.phase | yaml |\n| --- | --- | --- | --- |\n"
-		for namespace, restores := range restoreByNamespace {
-			list := &corev1.List{}
-			list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-			folder := fmt.Sprintf("namespaces/%s/oadp.openshift.io/virtualmachinefilerestores", namespace)
-			file := folder + "/virtualmachinefilerestores.yaml"
-			for _, restore := range restores {
-				restore.GetObjectKind().SetGroupVersionKind(gvk.VirtualMachineFileRestoreGVK)
-				list.Items = append(list.Items, runtime.RawExtension{Object: &restore})
-
-				status := ""
-				phase := restore.Status.Phase
-				if len(phase) == 0 {
-					status = "⚠️ no status phase"
-					summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-						"⚠️ VirtualMachineFileRestore **%v** with **no status phase** in **%v** namespace\n\n",
-						restore.Name, namespace,
-					)
-				} else {
-					failedStates := []vmfrv1alpha1.VirtualMachineFileRestorePhase{
-						vmfrv1alpha1.VirtualMachineFileRestorePhaseFailed,
-						vmfrv1alpha1.VirtualMachineFileRestorePhasePartiallyFailed,
-					}
-					if phase == vmfrv1alpha1.VirtualMachineFileRestorePhaseCompleted {
-						status = fmt.Sprintf("✅ status phase %s", phase)
-					} else if slices.Contains(failedStates, phase) {
-						status = fmt.Sprintf("❌ status phase %s", phase)
-						summaryTemplateReplaces["ERRORS"] += fmt.Sprintf(
-							"❌ VirtualMachineFileRestore **%v** with **status phase %s** in **%v** namespace\n\n",
-							restore.Name, phase, namespace,
-						)
-					} else {
-						status = fmt.Sprintf("⚠️ status phase %s", phase)
-					}
-				}
-
-				link := fmt.Sprintf("[`yaml`](%s)", file)
-				summaryTemplateReplaces["VIRTUAL_MACHINE_FILE_RESTORES"] += fmt.Sprintf(
-					"| %v | %v | %s | %s |\n",
-					namespace, restore.Name, status, link,
-				)
+			status := ""
+			switch phase := restore.Status.Phase; {
+			case len(phase) == 0:
+				status = "⚠️ no status phase"
+				errMsg += fmt.Sprintf("⚠️ VirtualMachineFileRestore **%v** with **no status phase** in **%v** namespace\n\n", restore.Name, restore.Namespace)
+			case phase == vmfrv1alpha1.VirtualMachineFileRestorePhaseCompleted:
+				status = fmt.Sprintf("✅ status phase %s", phase)
+			case slices.Contains([]vmfrv1alpha1.VirtualMachineFileRestorePhase{
+				vmfrv1alpha1.VirtualMachineFileRestorePhaseFailed,
+				vmfrv1alpha1.VirtualMachineFileRestorePhasePartiallyFailed,
+			}, phase):
+				status = fmt.Sprintf("❌ status phase %s", phase)
+				errMsg += fmt.Sprintf("❌ VirtualMachineFileRestore **%v** with **status phase %s** in **%v** namespace\n\n", restore.Name, phase, restore.Namespace)
+			default:
+				status = fmt.Sprintf("⚠️ status phase %s", phase)
 			}
 
-			createYAML(outputPath, file, list)
-		}
-	} else {
-		summaryTemplateReplaces["VIRTUAL_MACHINE_FILE_RESTORES"] = "❌ No VirtualMachineFileRestore was found in the cluster"
-	}
+			link := fmt.Sprintf("[`yaml`](%s)", filePath)
+			row := fmt.Sprintf("| %v | %v | %s | %s |\n", restore.Namespace, restore.Name, status, link)
+			return row, errMsg
+		},
+	}, vmFileRestoreList)
 }
 
 func ReplaceAvailableStorageClassesSection(outputPath string, storageClassList *storagev1.StorageClassList) {
-	if storageClassList != nil && len(storageClassList.Items) != 0 {
-		list := &corev1.List{}
-		list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-		for _, storageClass := range storageClassList.Items {
-			storageClass.GetObjectKind().SetGroupVersionKind(gvk.StorageClassGVK)
-			list.Items = append(list.Items, runtime.RawExtension{Object: &storageClass})
-		}
-		summaryTemplateReplaces["STORAGE_CLASSES"] = createYAML(outputPath, "cluster-scoped-resources/storage.k8s.io/storageclasses/storageclasses.yaml", list)
-	} else {
-		summaryTemplateReplaces["STORAGE_CLASSES"] = "❌ No StorageClass was found in the cluster"
-		summaryTemplateReplaces["ERRORS"] += "⚠️ No StorageClass was found in the cluster\n\n"
-	}
+	ReplaceClusterScopedSection(outputPath, ClusterScopedConfig{
+		TemplateKey:  "STORAGE_CLASSES",
+		GVK:          gvk.StorageClassGVK,
+		FilePath:     "cluster-scoped-resources/storage.k8s.io/storageclasses/storageclasses.yaml",
+		EmptyMessage: "No StorageClass was found in the cluster",
+	}, storageClassList)
 }
 
 func ReplaceAvailableVolumeSnapshotClassesSection(outputPath string, volumeSnapshotClassList *volumesnapshotv1.VolumeSnapshotClassList) {
-	if volumeSnapshotClassList != nil && len(volumeSnapshotClassList.Items) != 0 {
-		list := &corev1.List{}
-		list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-		for _, volumeSnapshotClass := range volumeSnapshotClassList.Items {
-			volumeSnapshotClass.GetObjectKind().SetGroupVersionKind(gvk.VolumeSnapshotClassGVK)
-			list.Items = append(list.Items, runtime.RawExtension{Object: &volumeSnapshotClass})
-		}
-		summaryTemplateReplaces["VOLUME_SNAPSHOT_CLASSES"] = createYAML(outputPath, "cluster-scoped-resources/snapshot.storage.k8s.io/volumesnapshotclasses/volumesnapshotclasses.yaml", list)
-	} else {
-		summaryTemplateReplaces["VOLUME_SNAPSHOT_CLASSES"] = "❌ No VolumeSnapshotClass was found in the cluster"
-		summaryTemplateReplaces["ERRORS"] += "⚠️ No VolumeSnapshotClass was found in the cluster\n\n"
-	}
+	ReplaceClusterScopedSection(outputPath, ClusterScopedConfig{
+		TemplateKey:  "VOLUME_SNAPSHOT_CLASSES",
+		GVK:          gvk.VolumeSnapshotClassGVK,
+		FilePath:     "cluster-scoped-resources/snapshot.storage.k8s.io/volumesnapshotclasses/volumesnapshotclasses.yaml",
+		EmptyMessage: "No VolumeSnapshotClass was found in the cluster",
+	}, volumeSnapshotClassList)
 }
 
 func ReplaceAvailableCSIDriversSection(outputPath string, csiDriverList *storagev1.CSIDriverList) {
-	if csiDriverList != nil && len(csiDriverList.Items) != 0 {
-		list := &corev1.List{}
-		list.GetObjectKind().SetGroupVersionKind(gvk.ListGVK)
-
-		for _, csiDriver := range csiDriverList.Items {
-			csiDriver.GetObjectKind().SetGroupVersionKind(gvk.CSIDriverGVK)
-			list.Items = append(list.Items, runtime.RawExtension{Object: &csiDriver})
-		}
-		summaryTemplateReplaces["CSI_DRIVERS"] = createYAML(outputPath, "cluster-scoped-resources/storage.k8s.io/csidrivers/csidrivers.yaml", list)
-	} else {
-		summaryTemplateReplaces["CSI_DRIVERS"] = "❌ No CSIDriver was found in the cluster"
-		summaryTemplateReplaces["ERRORS"] += "⚠️ No CSIDriver was found in the cluster\n\n"
-	}
+	ReplaceClusterScopedSection(outputPath, ClusterScopedConfig{
+		TemplateKey:  "CSI_DRIVERS",
+		GVK:          gvk.CSIDriverGVK,
+		FilePath:     "cluster-scoped-resources/storage.k8s.io/csidrivers/csidrivers.yaml",
+		EmptyMessage: "No CSIDriver was found in the cluster",
+	}, csiDriverList)
 }
 
 func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *rest.Config) {
