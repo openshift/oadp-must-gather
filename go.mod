@@ -189,3 +189,5 @@ require (
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20240822153644-9ac863aaa452
 
 replace github.com/kopia/kopia => github.com/project-velero/kopia v0.0.0-20240417031915-e07d5b7de567
+
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.12
