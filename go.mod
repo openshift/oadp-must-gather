@@ -5,7 +5,7 @@ go 1.25.8
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/openshift/api v0.0.0-20230213134911-7ba313770556
-	github.com/openshift/oadp-operator v1.0.2-0.20260714174240-5a10b977be5a
+	github.com/openshift/oadp-operator v1.0.2-0.20260714225711-5000c2e2a196
 	github.com/openshift/oc v0.0.0-alpha.0.0.20240408085010-d691257345ae
 	github.com/operator-framework/api v0.17.1
 	github.com/spf13/cobra v1.8.1
