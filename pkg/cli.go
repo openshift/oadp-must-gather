@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -295,12 +296,50 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 				}
 			}
 
+			// find application namespaces referenced by Backups/Restores, so their
+			// PVC/PV/Namespace(SCC)/pod data can be inspected too (helps diagnose
+			// restore permission/ownership bugs)
+			workloadNamespaces := map[string][]string{}
+			for _, backup := range backupList.Items {
+				namespaces, err := gather.BackupWorkloadNamespaces(context.Background(), clusterClient, backup, RequestTimeout, SkipTLS)
+				if err != nil {
+					// do not print err: it may embed the backup storage location's
+					// raw HTTP response body (endpoint/bucket details)
+					fmt.Printf("could not determine workload namespaces for backup %s/%s\n", backup.Namespace, backup.Name)
+					continue
+				}
+				for _, namespace := range namespaces {
+					workloadNamespaces[namespace] = append(workloadNamespaces[namespace], fmt.Sprintf("Backup/%s/%s", backup.Namespace, backup.Name))
+				}
+			}
+			for _, restore := range restoreList.Items {
+				namespaces, err := gather.RestoreWorkloadNamespaces(context.Background(), clusterClient, restore, RequestTimeout, SkipTLS)
+				if err != nil {
+					// do not print err: it may embed the backup storage location's
+					// raw HTTP response body (endpoint/bucket details)
+					fmt.Printf("could not determine workload namespaces for restore %s/%s\n", restore.Namespace, restore.Name)
+					continue
+				}
+				for _, namespace := range namespaces {
+					workloadNamespaces[namespace] = append(workloadNamespaces[namespace], fmt.Sprintf("Restore/%s/%s", restore.Namespace, restore.Name))
+				}
+			}
+
 			// oc adm inspect --dest-dir must-gather/clusters/${clusterID} ns/${ns}
-			if len(importantCSVsByNamespace) != 0 {
+			if len(importantCSVsByNamespace) != 0 || len(workloadNamespaces) != 0 {
 				ocAdmInspect := ocadminspect.NewInspectOptions(genericiooptions.NewTestIOStreamsDiscard())
 				ocAdmInspect.DestDir = outputPath
 				ocAdmInspectNamespaces := []string{}
+				seenNamespaces := map[string]bool{}
 				for namespace := range importantCSVsByNamespace {
+					seenNamespaces[namespace] = true
+					ocAdmInspectNamespaces = append(ocAdmInspectNamespaces, "ns/"+namespace)
+				}
+				for namespace := range workloadNamespaces {
+					if seenNamespaces[namespace] {
+						continue
+					}
+					seenNamespaces[namespace] = true
 					ocAdmInspectNamespaces = append(ocAdmInspectNamespaces, "ns/"+namespace)
 				}
 
@@ -333,6 +372,7 @@ For more information, check OADP must-gather documentation: https://docs.redhat.
 			// this creates DownloadRequests CRs
 			templates.ReplaceBackupsSection(outputPath, backupList, clusterClient, deleteBackupRequestList, podVolumeBackupList, RequestTimeout, SkipTLS)
 			templates.ReplaceRestoresSection(outputPath, restoreList, clusterClient, podVolumeRestoreList, RequestTimeout, SkipTLS)
+			templates.ReplaceWorkloadNamespacesSection(workloadNamespaces)
 
 			downloadRequestList := &velerov1.DownloadRequestList{}
 			err = gather.AllResources(clusterClient, downloadRequestList)

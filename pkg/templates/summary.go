@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,6 +54,7 @@ var (
 		"VOLUME_SNAPSHOT_LOCATIONS",
 		"BACKUPS",
 		"RESTORES",
+		"WORKLOAD_NAMESPACES",
 		"SCHEDULES",
 		"BACKUPS_REPOSITORIES",
 		"DATA_UPLOADS",
@@ -93,6 +95,7 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
     - [VolumeSnapshotLocations (VSLs)](#volumesnapshotlocations-vsls)
     - [Backups](#backups)
     - [Restores](#restores)
+    - [Workload namespaces (Backups/Restores)](#workload-namespaces-backupsrestores)
     - [Schedules](#schedules)
     - [BackupRepositories](#backuprepositories)
     - [DataUploads](#datauploads)
@@ -158,6 +161,15 @@ const summaryTemplate = `# OADP must-gather summary version <<MUST_GATHER_VERSIO
 ### Restores
 
 <<RESTORES>>
+
+### Workload namespaces (Backups/Restores)
+
+Application namespaces referenced by Backup/Restore spec.includedNamespaces (or
+discovered from the actual backed-up/restored resources when unset/"*"). These are
+also passed to oc adm inspect, so their PVC/PV/Namespace(SCC)/pod data is collected
+under namespaces/<namespace>/ alongside the OADP operator namespace.
+
+<<WORKLOAD_NAMESPACES>>
 
 ### Schedules
 
@@ -832,6 +844,28 @@ func ReplaceRestoresSection(
 		}
 	} else {
 		summaryTemplateReplaces["RESTORES"] = "❌ No Restore was found in the cluster"
+	}
+}
+
+func ReplaceWorkloadNamespacesSection(workloadNamespaces map[string][]string) {
+	if len(workloadNamespaces) != 0 {
+		namespaces := make([]string, 0, len(workloadNamespaces))
+		for namespace := range workloadNamespaces {
+			namespaces = append(namespaces, namespace)
+		}
+		sort.Strings(namespaces)
+
+		summaryTemplateReplaces["WORKLOAD_NAMESPACES"] = "| Namespace | Referenced by |\n| --- | --- |\n"
+		for _, namespace := range namespaces {
+			referencedBy := slices.Clone(workloadNamespaces[namespace])
+			sort.Strings(referencedBy)
+			summaryTemplateReplaces["WORKLOAD_NAMESPACES"] += fmt.Sprintf(
+				"| %v | %v |\n",
+				namespace, strings.Join(referencedBy, ", "),
+			)
+		}
+	} else {
+		summaryTemplateReplaces["WORKLOAD_NAMESPACES"] = "❌ No workload namespaces were discovered from Backup/Restore spec.includedNamespaces"
 	}
 }
 
