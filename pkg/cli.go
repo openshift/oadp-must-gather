@@ -46,14 +46,14 @@ var (
 
 For more information, check OADP must-gather documentation: https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/backup_and_restore/oadp-application-backup-and-restore#using-the-must-gather-tool`,
 		Args: cobra.NoArgs,
-		Example: fmt.Sprintf(`  # running OADP Must-gather with default configuration
+		Example: fmt.Sprintf(`  # running OADP Must-gather with default configuration (insecure TLS connections enabled by default)
   oc adm must-gather --image=%[1]s
 
   # running OADP Must-gather with timeout of 1 minute per OADP server request
   oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 1m
 
   # running OADP Must-gather with timeout of 15 seconds per OADP server request and with insecure TLS connections
-  oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 15s --skip-tls`, mustGatherImage),
+  oc adm must-gather --image=%[1]s -- /usr/bin/gather --request-timeout 15s`, mustGatherImage),
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(_ *cobra.Command, _ []string) error {
