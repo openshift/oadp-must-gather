@@ -4,9 +4,9 @@ go 1.25.0
 
 require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
-	github.com/migtools/oadp-non-admin v0.0.0-20260731154801-dccbd51f6a00
+	github.com/migtools/oadp-non-admin v0.0.0-20260907154925-21d8f9bf01a3
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826
-	github.com/openshift/oadp-operator v1.0.2-0.20260821200455-de8c590f5f98
+	github.com/openshift/oadp-operator v1.0.2-0.20260906045107-bdb91bda180e
 	github.com/openshift/oc v0.0.0-alpha.0.0.20250108103617-ae1bd9e4a75b
 	github.com/operator-framework/api v0.26.0
 	github.com/spf13/cobra v1.8.1
@@ -102,13 +102,13 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/term v0.44.0 // indirect
-	golang.org/x/text v0.39.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/term v0.45.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -127,6 +127,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731193937-7c457d695c37
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260904192500-3fd503971caa
 
 exclude github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
