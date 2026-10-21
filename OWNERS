@@ -1,4 +1,5 @@
 approvers:
+  - akarol
   - dymurray
   - jwmatthews
   - kaovilai
@@ -9,6 +10,7 @@ approvers:
   - weshayutin
   - joeavaikath
 reviewers:
+  - akarol
   - kaovilai
   - mpryc
   - shubham-pampattiwar
