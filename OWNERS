@@ -1,16 +1,20 @@
 approvers:
+  - akarol
   - dymurray
   - jwmatthews
   - kaovilai
   - mpryc
+  - PrasadJoshi12
   - shawn-hurley
   - shubham-pampattiwar
   - sseago
   - weshayutin
   - joeavaikath
 reviewers:
+  - akarol
   - kaovilai
   - mpryc
+  - PrasadJoshi12
   - shubham-pampattiwar
   - sseago
   - weshayutin
